@@ -1,0 +1,197 @@
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+body {
+    width: 100vw;
+    height: 100vh;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    overflow: hidden; /* Keeps bubbles from creating page scrollbars */
+    background: linear-gradient(135deg, #0b1528 0%, #1a2c54 100%);
+}
+
+/* ==========================================================================
+   1. THE FLUID WAVES (Now with explicit structural sizing)
+   ========================================================================== */
+
+.wave-1, .wave-2, .wave-3 {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1; /* Sits firmly behind the container card */
+    pointer-events: none; /* Prevents background from blocking clicks */
+}
+
+/* Wave Layer 1: The deep flowing mid-tone blue wave */
+.wave-1 {
+    background: linear-gradient(140deg, #243d7c 0%, #1c2b52 70%);
+    clip-path: polygon(0 0, 100% 0, 100% 50%, 80% 75%, 45% 55%, 0 85%);
+    opacity: 0.8;
+}
+
+/* Wave Layer 2: The brighter, vibrant accent wave */
+.wave-2 {
+    background: linear-gradient(135deg, #3d68df 0%, #2a4cb3 100%);
+    clip-path: polygon(100% 15%, 100% 70%, 75% 90%, 40% 60%, 0 95%, 0 45%);
+    opacity: 0.4;
+}
+
+/* Wave Layer 3: The ultra-soft white/light blue fluid curve at the top */
+.wave-3 {
+    background: linear-gradient(130deg, rgba(255, 255, 255, 0.9) 0%, rgba(186, 210, 255, 0.2) 60%);
+    clip-path: polygon(100% 0, 100% 40%, 85% 45%, 65% 25%, 45% 0);
+}
+
+/* ==========================================================================
+   2. THE 3D SPHERES (Ensured layout presence)
+   ========================================================================== */
+
+.bubble {
+    position: absolute;
+    border-radius: 50%;
+    z-index: 2; /* Layered nicely atop the waves */
+    pointer-events: none;
+}
+
+/* Bubble A: Large deep dark sphere in the top left */
+.bubble-a {
+    width: 220px;
+    height: 220px;
+    top: -40px;
+    left: 5%;
+    background: radial-gradient(circle at 30% 30%, #1a2c54 0%, #070c18 80%);
+    box-shadow: -10px -10px 30px rgba(255,255,255,0.05) inset, 15px 25px 35px rgba(0,0,0,0.5);
+}
+
+/* Bubble B: Mid-sized light blue sphere floating near the top right wave */
+.bubble-b {
+    width: 130px;
+    height: 130px;
+    top: 20%;
+    right: 12%;
+    background: radial-gradient(circle at 35% 35%, #abc3ff 0%, #4673f6 70%, #1b3995 100%);
+    box-shadow: -5px -5px 15px rgba(255,255,255,0.4) inset, 10px 15px 30px rgba(0,0,0,0.3);
+}
+
+/* Bubble C: Small soft-lit highlighting sphere */
+.bubble-c {
+    width: 75px;
+    height: 75px;
+    bottom: 30%;
+    left: 8%;
+    background: radial-gradient(circle at 30% 30%, #eef3ff 0%, #8cb0ff 60%, #305ec7 100%);
+    box-shadow: -3px -3px 10px rgba(255,255,255,0.5) inset, 5px 10px 20px rgba(0,0,0,0.25);
+}
+
+/* Bubble D: Massive realistic focal sphere at the bottom left */
+.bubble-d {
+    width: 260px;
+    height: 260px;
+    bottom: -60px;
+    left: 15%;
+    background: radial-gradient(circle at 35% 35%, #2549b9 0%, #0f1c40 75%, #050917 100%);
+    box-shadow: -15px -15px 35px rgba(255,255,255,0.1) inset, 20px 30px 50px rgba(0,0,0,0.6);
+}
+
+/* ==========================================================================
+   3. THE LOGIN CONTAINER CARD (Brought to the foreground)
+   ========================================================================== */
+
+.login-container {
+    background: #ffffff;
+    padding: 50px 40px;
+    border-radius: 28px;
+    box-shadow: 0 30px 60px rgba(7, 12, 24, 0.4);
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+    position: relative;
+    z-index: 10; /* CRITICAL: Pushes the card in front of all background effects */
+    animation: cardEntrance 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Heading */
+h1 {
+    color: #1d2d5c;
+    font-size: 30px;
+    font-weight: 700;
+    margin-bottom: 35px;
+    letter-spacing: -0.5px;
+}
+
+/* Form Layout */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Input Styles */
+input[type="password"] {
+    width: 100%;
+    padding: 16px 18px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    font-size: 15px;
+    outline: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: #f8fafc;
+    color: #0f172a;
+}
+
+input[type="password"]:focus {
+    border-color: #3b66f6;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 4px rgba(59, 102, 246, 0.15);
+}
+
+input[type="password"]::placeholder {
+    color: #94a3b8;
+}
+
+/* Button Styles */
+button[type="submit"] {
+    width: 100%;
+    padding: 16px;
+    background: #3b66f6;
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 6px 20px rgba(59, 102, 246, 0.35);
+}
+
+button[type="submit"]:hover {
+    background: #2552e2;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(59, 102, 246, 0.45);
+}
+
+button[type="submit"]:active {
+    transform: translateY(1px);
+}
+
+/* Card Entry Animation */
+@keyframes cardEntrance {
+    from {
+        opacity: 0;
+        transform: translateY(40px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
