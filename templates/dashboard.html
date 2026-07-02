@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     
+    <!-- Flatpickr CSS & JavaScript Packages -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.js"></script>
@@ -16,9 +17,10 @@
         body {
             background: #f4f7fb;
             font-family: 'Poppins', sans-serif;
+            overflow-x: hidden;
         }
 
-        /* SIDEBAR */
+        /* SIDEBAR WITH TRANSITION EFFECT */
         .sidebar {
             position: fixed;
             left: 0;
@@ -28,12 +30,14 @@
             background: linear-gradient(135deg, #0b1528, #1a2c54);
             color: white;
             padding: 20px;
+            transition: transform 0.3s ease;
+            z-index: 1000;
         }
 
         .sidebar h2 {
             font-size: 18px;
-            margin-bottom: 30px;
             font-weight: 700;
+            margin-bottom: 0;
         }
 
         .nav-item {
@@ -48,10 +52,59 @@
             color: #3b66f6;
         }
 
-        /* MAIN */
+        /* SIDEBAR TOGGLE ACTION BUTTONS */
+        .sidebar-toggle-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        .sidebar-toggle-btn:hover {
+            opacity: 1;
+        }
+
+        /* FLOATING TRIGGER WHEN COLLAPSED */
+        .floating-menu-btn {
+            position: fixed;
+            left: 0;
+            top: 15px;
+            z-index: 1001;
+            background: #1a2c54;
+            color: #3b66f6;
+            border: 1px solid rgba(59, 102, 246, 0.3);
+            border-left: none;
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
+            padding: 10px 12px;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.15);
+            display: none; /* Hidden by default */
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .floating-menu-btn:hover {
+            background: #3b66f6;
+            color: white;
+        }
+
+        /* MAIN SECTION RESPONSIVENESS */
         .main {
             margin-left: 270px;
             padding: 30px;
+            transition: margin-left 0.3s ease;
+        }
+
+        /* COLLAPSED STATES */
+        body.sidebar-hidden .sidebar {
+            transform: translateX(-250px);
+        }
+        body.sidebar-hidden .main {
+            margin-left: 30px; /* Margins wrap safely when sidebar closes */
+        }
+        body.sidebar-hidden .floating-menu-btn {
+            display: block; /* Appears only when sidebar layout is hidden */
         }
 
         /* CARDS */
@@ -136,8 +189,18 @@
 
 <body>
 
+<!-- FLOATING TRIGGER PINNED TO LEFT EDGE WHEN SIDEBAR IS HIDDEN -->
+<button class="floating-menu-btn" onclick="toggleSidebar()" title="Afficher le menu">
+    <i class="bi bi-list"></i>
+</button>
+
 <div class="sidebar">
-    <h2>Tableau de bord</h2>
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <h2>Tableau de bord</h2>
+        <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Masquer le menu">
+            <i class="bi bi-layout-sidebar-inset"></i>
+        </button>
+    </div>
     <div class="nav-item"><i class="bi bi-list-task"></i> Tâches</div>
     <div class="nav-item"><i class="bi bi-people"></i> Travailleurs</div>
     <div class="nav-item"><i class="bi bi-graph-up"></i> Statistiques</div>
@@ -162,6 +225,7 @@
         <i class="bi bi-plus-circle"></i> Ajouter une tâche
     </button>
 
+    <!-- TAB 1: TODAY TASKS -->
     <div class="card-box">
         <h5><i class="bi bi-calendar-check"></i> Tâches du jour</h5>
         <table class="table align-middle">
@@ -182,7 +246,7 @@
                     <td>{{ t.phone }}</td>
                     <td>{{ t.description }}</td>
                     <td>{{ t.tools }}</td>
-                    <td>{{ t.invoice }} TND</td>
+                    <td>{{ t.invoice }} DT</td>
                     <td>
                         {% if t.done %}
                             <a href="/toggle_done/{{ t.index }}" class="done-btn done">Fait</a>
@@ -198,6 +262,7 @@
         </table>
     </div>
 
+    <!-- TAB 2: PENDING TASKS -->
     <div class="card-box">
         <h5><i class="bi bi-hourglass-split"></i> Tâches en cours</h5>
         <table class="table align-middle">
@@ -219,7 +284,7 @@
                     <td>{{ t.description }}</td>
                     <td>{{ t.phone }}</td>
                     <td>{{ t.tools }}</td>
-                    <td>{{ t.invoice }} TND</td>
+                    <td>{{ t.invoice }} DT</td>
                     <td>{{ t.date_display }}</td>
                     <td>
                         {% if t.time_diff > 0 %}
@@ -238,6 +303,7 @@
         </table>
     </div>
 
+    <!-- TAB 3: WEEKLY DONE TASKS -->
     <div class="card-box">
         <h5><i class="bi bi-check-circle"></i> Tâches terminées (semaine)</h5>
         <table class="table align-middle">
@@ -258,7 +324,7 @@
                     <td>{{ t.description }}</td>
                     <td>{{ t.phone }}</td>
                     <td>{{ t.tools }}</td>
-                    <td>{{ t.invoice }} TND</td>
+                    <td>{{ t.invoice }} DT</td>
                     <td>{{ t.date_display }}</td>
                 </tr>
                 {% else %}
@@ -272,6 +338,7 @@
 
 <div class="overlay" id="globalOverlay" onclick="closeAllModals()"></div>
 
+<!-- MODAL: ADD TASK -->
 <div class="modal-box" id="modalBox">
     <h5 class="mb-3">Ajouter une tâche</h5>
     <form action="/add_task" method="POST">
@@ -279,14 +346,13 @@
         <input class="form-control mb-2" name="phone" placeholder="Téléphone" required>
         <input class="form-control mb-2" name="description" placeholder="Travail" required>
         <input class="form-control mb-2" name="tools" placeholder="Outils">
-        <input class="form-control mb-2" name="invoice" type="number" step="0.01" placeholder="Facture" required>
-        
+        <input class="form-control mb-2" name="invoice" type="number" step="0.01" placeholder="Facture (DT)" required>
         <input class="form-control mb-2" name="date" id="add_date" type="text" placeholder="Sélectionner une date" required>
-        
         <button class="btn btn-success w-100">Ajouter</button>
     </form>
 </div>
 
+<!-- MODAL: DETAILS / EDIT TASK -->
 <div class="modal-box" id="taskModal">
     <h5 class="mb-3">Détails de la tâche</h5>
     <form action="/update_task" method="POST">
@@ -296,7 +362,6 @@
         <input class="form-control mb-2" name="description" id="description" placeholder="Travail" required>
         <input class="form-control mb-2" name="tools" id="tools" placeholder="Outils">
         <input class="form-control mb-2" name="invoice" id="invoice" type="number" step="0.01" required>
-        
         <input class="form-control mb-2" name="date" id="date" type="text" placeholder="Sélectionner une date" required>
         
         <div class="mb-3 p-2 border rounded bg-light d-flex align-items-center justify-content-between">
@@ -312,22 +377,26 @@
 </div>
 
 <script>
-// Keep global instances of flatpickr to refresh values dynamically
 let addDatePickerInstance;
 let detailsDatePickerInstance;
 
 document.addEventListener("DOMContentLoaded", function() {
     const flatpickrOptions = {
         locale: "fr",
-        dateFormat: "Y-m-d", // Formats data payload back to Python as YYYY-MM-DD
+        dateFormat: "Y-m-d",
         altInput: true,
-        altFormat: "d/m/Y",  // Forces layout display on-screen as DD/MM/YYYY for everyone
+        altFormat: "d/m/Y",
         allowInput: true
     };
 
     addDatePickerInstance = flatpickr("#add_date", flatpickrOptions);
     detailsDatePickerInstance = flatpickr("#date", flatpickrOptions);
 });
+
+// JavaScript logic to manage sidebar toggle visibility configurations cleanly
+function toggleSidebar() {
+    document.body.classList.toggle("sidebar-hidden");
+}
 
 function openModal() {
     if (addDatePickerInstance) {
@@ -353,14 +422,12 @@ function openTask(index) {
             document.getElementById("invoice").value = data.invoice;
             document.getElementById("note").value = data.note || "";
 
-            // Set Flatpickr date explicitly
             if (detailsDatePickerInstance) {
                 detailsDatePickerInstance.setDate(data.date);
             } else {
                 document.getElementById("date").value = data.date;
             }
 
-            // Sync structural complete checkbox status 
             document.getElementById("taskDone").checked = data.done;
             
             document.getElementById("taskModal").style.display = "block";
