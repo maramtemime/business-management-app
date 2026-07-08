@@ -106,6 +106,7 @@ def add_task():
     tools = request.form.get("tools", "").strip()
     invoice_raw = request.form.get("invoice", "0").strip()
     date_value = request.form.get("date", "").strip()
+    note = request.form.get("note", "").strip()  # 1. Capture and strip optional note input
     
     errors = []
 
@@ -133,7 +134,6 @@ def add_task():
     is_past_date = task_date_obj < date.today()
 
     # --- SQLALCHEMY INSERT ---
-    # Instantiating a new object model instance representing a table row entry
     new_task = Task(
         client_name=client_name,
         phone=phone,
@@ -142,11 +142,11 @@ def add_task():
         invoice=invoice,
         date=date_value, 
         done=True if is_past_date else False, 
-        note=""
+        note=note  # 2. Pass the captured note string here
     )
 
-    db.session.add(new_task) # Stage database execution statement
-    db.session.commit()      # Commit operation changes securely to disk file permanent record
+    db.session.add(new_task)
+    db.session.commit()
     return redirect(url_for("dashboard"))
 
 @app.route("/toggle_done/<int:index>")
