@@ -1,10 +1,27 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date, timedelta
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_session" 
 
-tasks = []
+# --- DATABASE CONFIGURATION ---
+# This creates a local file named 'project.db' inside your project folder
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///project.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+# --- DATABASE MODEL (TABLE STRUCTURE) ---
+class Task(db.Model):
+    id = db.Column(db.Integer, primary_key=True) # Automatically increments (replaces our old index system)
+    client_name = db.Column(db.String(100), nullable=False)
+    phone = db.Column(db.String(20), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    tools = db.Column(db.Text, nullable=True)
+    invoice = db.Column(db.Float, default=0.0)
+    date = db.Column(db.String(10), nullable=False) # Stores as YYYY-MM-DD string
+    done = db.Column(db.Boolean, default=False)
+    note = db.Column(db.Text, nullable=True)
 
 def get_time_diff(task_date):
     """Return difference in days between task date and today"""
@@ -31,27 +48,39 @@ def dashboard():
     today_display = date.today().strftime("%d/%m/%Y")
     
     start_week = date.today() - timedelta(days=date.today().weekday())
+    end_week = start_week + timedelta(days=6)
     
-    # Process tasks and append formatting keys dynamically
-    for i, t in enumerate(tasks):
-        t["index"] = i
-        t["time_diff"] = get_time_diff(t["date"])
-        
-        try:
-            date_obj = datetime.strptime(t["date"], "%Y-%m-%d")
-            t["date_display"] = date_obj.strftime("%d/%m/%Y")
-        except ValueError:
-            t["date_display"] = t["date"]
+    french_months = {
+        1: "janv", 2: "févr", 3: "mars", 4: "avr", 5: "mai", 6: "juin",
+        7: "juil", 8: "août", 9: "sept", 10: "oct", 11: "nov", 12: "déc"
+    }
+    
+    start_week_display = f"{start_week.day} {french_months[start_week.month]}"
+    end_week_display = f"{end_week.day} {french_months[end_week.month]}"
+    week_range_string = f"{start_week_display} au {end_week_display}"
 
-    # Filter task groups cleanly
-    today_tasks = [t for t in tasks if t["date"] == today]
-    pending_tasks = [t for t in tasks if not t["done"]]
+    # --- SQLALCHEMY QUERY ---
+    # Fetch ALL tasks from the database instead of a memory list
+    all_tasks = Task.query.all()
+    
+    # Format dates dynamically for on-screen layout templates
+    for t in all_tasks:
+        t.time_diff = get_time_diff(t.date)
+        try:
+            date_obj = datetime.strptime(t.date, "%Y-%m-%d")
+            t.date_display = date_obj.strftime("%d/%m/%Y")
+        except ValueError:
+            t.date_display = t.date
+
+    # Filter task groups out of our processed database records
+    today_tasks = [t for t in all_tasks if t.date == today]
+    pending_tasks = [t for t in all_tasks if not t.done]
     
     done_week_tasks = []
-    for t in tasks:
-        if t["done"]:
+    for t in all_tasks:
+        if t.done:
             try:
-                task_d = datetime.strptime(t["date"], "%Y-%m-%d").date()
+                task_d = datetime.strptime(t.date, "%Y-%m-%d").date()
                 if task_d >= start_week:
                     done_week_tasks.append(t)
             except ValueError:
@@ -65,6 +94,7 @@ def dashboard():
         pending_tasks=pending_tasks,
         done_week_tasks=done_week_tasks,
         today=today_display,
+        week_range=week_range_string,
         errors=errors
     )
 
@@ -98,85 +128,89 @@ def add_task():
         task_date_obj = date.today()
 
     if errors:
-        today_display = date.today().strftime("%d/%m/%Y")
-        today = str(date.today())
-        
-        for i, t in enumerate(tasks):
-            t["index"] = i
-            t["time_diff"] = get_time_diff(t["date"])
-            try:
-                t["date_display"] = datetime.strptime(t["date"], "%Y-%m-%d").strftime("%d/%m/%Y")
-            except ValueError:
-                t["date_display"] = t["date"]
-
-        today_tasks = [t for t in tasks if t["date"] == today]
-        pending_tasks = [t for t in tasks if not t["done"]]
-        done_week_tasks = [t for t in tasks if t["done"]]
-        
-        return render_template(
-            "dashboard.html",
-            today_tasks=today_tasks,
-            pending_tasks=pending_tasks,
-            done_week_tasks=done_week_tasks,
-            today=today_display,
-            errors=errors
-        )
+        return redirect(url_for("dashboard", errors=errors))
 
     is_past_date = task_date_obj < date.today()
 
-    new_task = {
-        "client_name": client_name,
-        "phone": phone,
-        "description": description,
-        "tools": tools,
-        "invoice": invoice,
-        "date": date_value, 
-        "done": True if is_past_date else False, 
-        "note": ""
-    }
+    # --- SQLALCHEMY INSERT ---
+    # Instantiating a new object model instance representing a table row entry
+    new_task = Task(
+        client_name=client_name,
+        phone=phone,
+        description=description,
+        tools=tools,
+        invoice=invoice,
+        date=date_value, 
+        done=True if is_past_date else False, 
+        note=""
+    )
 
-    tasks.append(new_task)
+    db.session.add(new_task) # Stage database execution statement
+    db.session.commit()      # Commit operation changes securely to disk file permanent record
     return redirect(url_for("dashboard"))
 
 @app.route("/toggle_done/<int:index>")
 def toggle_done(index):
-    if 0 <= index < len(tasks):
-        tasks[index]["done"] = not tasks[index]["done"]
+    # 'index' in our layout route variables now represents the Database row 'id' primary key
+    task = Task.query.get(index)
+    if task:
+        task.done = not task.done
+        db.session.commit()
     return redirect(url_for("dashboard"))
 
 @app.route("/update_task", methods=["POST"])
 def update_task():
     try:
-        index = int(request.form["index"])
-        if 0 <= index < len(tasks):
+        task_id = int(request.form["index"])
+        task = Task.query.get(task_id)
+        
+        if task:
             date_value = request.form["date"]
             task_date_obj = datetime.strptime(date_value, "%Y-%m-%d").date()
             
             is_done_checked = True if request.form.get("done") == "on" else False
 
-            tasks[index]["client_name"] = request.form["client_name"]
-            tasks[index]["phone"] = request.form["phone"]
-            tasks[index]["description"] = request.form["description"]
-            tasks[index]["tools"] = request.form["tools"]
-            tasks[index]["invoice"] = float(request.form.get("invoice", 0) or 0)
-            tasks[index]["date"] = date_value
-            tasks[index]["note"] = request.form["note"]
+            # Mutate entity row attributes directly
+            task.client_name = request.form["client_name"]
+            task.phone = request.form["phone"]
+            task.description = request.form["description"]
+            task.tools = request.form["tools"]
+            task.invoice = float(request.form.get("invoice", 0) or 0)
+            task.date = date_value
+            task.note = request.form["note"]
             
             if not is_done_checked and task_date_obj < date.today():
-                tasks[index]["done"] = True
+                task.done = True
             else:
-                tasks[index]["done"] = is_done_checked
+                task.done = is_done_checked
                 
-    except (ValueError, IndexError):
+            db.session.commit() # Save updates permanently
+                
+    except (ValueError, TypeError):
         pass 
 
     return redirect(url_for("dashboard"))
 
 @app.route("/get_task/<int:index>")
 def get_task(index):
-    if 0 <= index < len(tasks):
-        return jsonify(tasks[index])
+    task = Task.query.get(index)
+    if task:
+        # Convert model attributes to JSON dictionary representation payload
+        return jsonify({
+            "id": task.id,
+            "client_name": task.client_name,
+            "phone": task.phone,
+            "description": task.description,
+            "tools": task.tools,
+            "invoice": task.invoice,
+            "date": task.date,
+            "done": task.done,
+            "note": task.note
+        })
     return jsonify({"error": "Task not found"}), 404
 
+# --- AUTOMATIC TABLE CREATION BOOTSTRAPPING ENGINE ---
 if __name__ == "__main__":
+    with app.app_context():
+        db.create_all() # This creates project.db and the tables automatically if they don't exist!
     app.run(debug=True)
