@@ -182,7 +182,12 @@
     <div style="max-height: 70vh; overflow-y: auto; overflow-x: hidden; padding-right: 4px;">
         <form action="/add_task" method="POST">
             <input class="form-control mb-2" name="client_name" placeholder="Nom client" required>
-            <input class="form-control mb-2" name="phone" placeholder="Téléphone" required>
+            <div class="mb-2">
+                <input class="form-control" name="phone" id="add_phone" placeholder="Téléphone" required>
+                    <div id="phoneError" class="text-danger small mt-1 d-none">
+                        Le numéro de téléphone doit contenir uniquement des chiffres.
+                    </div>
+            </div>
             <input class="form-control mb-2" name="description" placeholder="Travail" required>
             <input class="form-control mb-2" name="tools" placeholder="Outils">
             <input class="form-control mb-2" name="invoice" type="number" step="0.01" placeholder="Facture (DT)" required>
@@ -449,6 +454,56 @@ function closeDeleteModal() {
     document.getElementById("deleteConfirmModal").style.display = "none";
     document.getElementById("taskModal").style.display = "block";
 }
+
+document.addEventListener("DOMContentLoaded", function () {
+    const phoneInput = document.getElementById("add_phone");
+    const phoneError = document.getElementById("phoneError");
+    const addForm = phoneInput ? phoneInput.closest("form") : null;
+
+    // Real-time check when clicking next input (blur)
+    if (phoneInput) {
+        phoneInput.addEventListener("blur", function () {
+            const val = phoneInput.value.trim();
+            if (val !== "" && !/^\d+$/.test(val)) {
+                phoneError.classList.remove("d-none");
+                phoneInput.classList.add("is-invalid");
+            } else {
+                phoneError.classList.add("d-none");
+                phoneInput.classList.remove("is-invalid");
+            }
+        });
+
+        phoneInput.addEventListener("input", function () {
+            if (/^\d+$/.test(phoneInput.value.trim())) {
+                phoneError.classList.add("d-none");
+                phoneInput.classList.remove("is-invalid");
+            }
+        });
+    }
+
+    // Modal Form Submission handling without page reload on error
+    if (addForm) {
+        addForm.addEventListener("submit", function (e) {
+            e.preventDefault();
+            
+            fetch("/add_task", {
+                method: "POST",
+                body: new FormData(addForm)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload(); // Success: refresh dashboard
+                } else if (data.phone_error) {
+                    // Show error inside card
+                    phoneError.classList.remove("d-none");
+                    phoneInput.classList.add("is-invalid");
+                }
+            })
+            .catch(err => console.error("Error submitting task:", err));
+        });
+    }
+});
 </script>
 
 </body>

@@ -98,6 +98,9 @@ def dashboard():
         errors=errors
     )
 
+from flask import jsonify, request, redirect, url_for
+from datetime import datetime, date
+
 @app.route("/add_task", methods=["POST"])
 def add_task():
     client_name = request.form.get("client_name", "").strip()
@@ -106,7 +109,7 @@ def add_task():
     tools = request.form.get("tools", "").strip()
     invoice_raw = request.form.get("invoice", "0").strip()
     date_value = request.form.get("date", "").strip()
-    note = request.form.get("note", "").strip()  # 1. Capture and strip optional note input
+    note = request.form.get("note", "").strip()
     
     errors = []
 
@@ -128,8 +131,13 @@ def add_task():
         errors.append("Date invalide, veuillez vérifier la date.")
         task_date_obj = date.today()
 
+    # --- RETURN JSON ERRORS IF VALIDATION FAILS ---
     if errors:
-        return redirect(url_for("dashboard", errors=errors))
+        return jsonify({
+            "success": False, 
+            "errors": errors,
+            "phone_error": "Le numéro de téléphone doit contenir uniquement des chiffres." in errors
+        }), 400
 
     is_past_date = task_date_obj < date.today()
 
@@ -142,12 +150,16 @@ def add_task():
         invoice=invoice,
         date=date_value, 
         done=True if is_past_date else False, 
-        note=note  # 2. Pass the captured note string here
+        note=note
     )
 
-    db.session.add(new_task)
-    db.session.commit()
-    return redirect(url_for("dashboard"))
+    try:
+        db.session.add(new_task)
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "errors": ["Une erreur serveur est survenue."]}), 500
 
 @app.route("/toggle_done/<int:index>")
 def toggle_done(index):
