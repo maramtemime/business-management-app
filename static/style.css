@@ -380,3 +380,29 @@ table.table tbody tr.has-note:hover,
 table.table tbody tr.has-note:hover td {
     background-color: #fff9c4 !important;
 }
+
+/* SCROLLABLE MODAL CARD */
+.modal-box {
+    max-height: 85vh;          /* Keeps modal within screen height */
+    overflow-y: auto;          /* Enables smooth vertical scroll */
+    padding-right: 15px;       /* Keeps scrollbar from overlapping inputs */
+}
+
+/* SLEEK CUSTOM SCROLLBAR */
+.modal-box::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-box::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.modal-box::-webkit-scrollbar-thumb {
+    background: #3b66f6;
+    border-radius: 10px;
+}
+
+.modal-box::-webkit-scrollbar-thumb:hover {
+    background: #2552e2;
+}

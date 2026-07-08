@@ -161,33 +161,51 @@ def toggle_done(index):
 @app.route("/update_task", methods=["POST"])
 def update_task():
     try:
-        task_id = int(request.form["index"])
-        task = Task.query.get(task_id)
+        # Check task_index first to match your exact HTML form attribute
+        task_id = request.form.get("task_index") or request.form.get("task_id") or request.form.get("index")
+        
+        if not task_id:
+            return redirect(url_for("dashboard"))
+        
+        # Query task by ID
+        task = Task.query.get(int(task_id))
         
         if task:
-            date_value = request.form["date"]
-            task_date_obj = datetime.strptime(date_value, "%Y-%m-%d").date()
+            date_value = request.form.get("date", "").strip()
             
-            is_done_checked = True if request.form.get("done") == "on" else False
+            # Safely parse task date
+            try:
+                task_date_obj = datetime.strptime(date_value, "%Y-%m-%d").date()
+            except ValueError:
+                task_date_obj = date.today()
+                date_value = task_date_obj.strftime("%Y-%m-%d")
 
-            # Mutate entity row attributes directly
-            task.client_name = request.form["client_name"]
-            task.phone = request.form["phone"]
-            task.description = request.form["description"]
-            task.tools = request.form["tools"]
-            task.invoice = float(request.form.get("invoice", 0) or 0)
-            task.date = date_value
-            task.note = request.form["note"]
+            is_done_checked = (request.form.get("done") == "on")
+
+            # Mutate database record values
+            task.client_name = request.form.get("client_name", "").strip()
+            task.phone = request.form.get("phone", "").strip()
+            task.description = request.form.get("description", "").strip()
+            task.tools = request.form.get("tools", "").strip()
             
+            try:
+                task.invoice = float(request.form.get("invoice", 0) or 0)
+            except ValueError:
+                task.invoice = 0.0
+
+            task.date = date_value
+            task.note = request.form.get("note", "").strip()
+            
+            # Auto-mark done for past dates unless manually unchecked
             if not is_done_checked and task_date_obj < date.today():
                 task.done = True
             else:
                 task.done = is_done_checked
                 
-            db.session.commit() # Save updates permanently
+            db.session.commit()
                 
     except (ValueError, TypeError):
-        pass 
+        db.session.rollback()
 
     return redirect(url_for("dashboard"))
 

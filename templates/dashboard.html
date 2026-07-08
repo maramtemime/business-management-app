@@ -190,7 +190,7 @@
     </form>
 </div>
 
-<div class="modal-box" id="taskModal" style="max-width: 420px;">
+<div class="modal-box" id="taskModal" style="max-width: 420px; display: none;">
     
     <div id="taskDetailView">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -234,7 +234,7 @@
         <button type="button" class="btn btn-secondary w-100" onclick="closeAllModals()">Fermer</button>
     </div>
 
-    <div id="taskEditView" style="display: none;">
+    <div id="taskEditView" style="display: none; max-height: 70vh; overflow-y: auto; overflow-x: hidden; padding-right: 4px;">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="mb-0 fw-bold">Modifier la tâche</h5>
             <button class="btn btn-sm btn-light rounded-circle" onclick="disableEditMode()" title="Annuler">
@@ -261,7 +261,7 @@
             
             <textarea class="form-control mb-2" name="note" id="note" placeholder="Notes..."></textarea>
             
-            <div class="d-flex gap-2 mt-3">
+            <div class="d-flex gap-2 mt-3 pb-1">
                 <button type="submit" class="btn btn-primary flex-grow-1">
                     <i class="bi bi-check-lg"></i> Sauvegarder
                 </button>
@@ -346,14 +346,21 @@ function openTask(taskId) {
 
             // 2. Populate Edit Inputs
             document.getElementById("taskIndex").value = data.id;
-            document.getElementById("client_name").value = data.client_name;
-            document.getElementById("phone").value = data.phone;
-            document.getElementById("description").value = data.description;
-            document.getElementById("tools").value = data.tools;
-            document.getElementById("invoice").value = data.invoice;
-            document.getElementById("date").value = data.date;
+            document.getElementById("client_name").value = data.client_name || "";
+            document.getElementById("phone").value = data.phone || "";
+            document.getElementById("description").value = data.description || "";
+            document.getElementById("tools").value = data.tools || "";
+            document.getElementById("invoice").value = data.invoice || "";
+            
+            // Populate Date & Sync Flatpickr Instance safely
+            const dateInput = document.getElementById("date");
+            dateInput.value = data.date || "";
+            if (dateInput._flatpickr) {
+                dateInput._flatpickr.setDate(data.date, true);
+            }
+
             document.getElementById("taskDone").checked = data.done;
-            document.getElementById("note").value = data.note;
+            document.getElementById("note").value = data.note || "";
 
             // 3. Reset view to Detail Card mode by default
             disableEditMode();
