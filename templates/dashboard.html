@@ -221,9 +221,23 @@
     <h3>Gestion des tâches</h3>
     <p class="text-muted">{{ today }}</p>
 
-    <button class="btn btn-primary mb-3" onclick="openModal()">
-        <i class="bi bi-plus-circle"></i> Ajouter une tâche
-    </button>
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <button class="btn btn-primary mb-3" onclick="openModal()">
+            <i class="bi bi-plus-circle"></i> Ajouter une tâche
+        </button>
+        <div class="input-group" style="max-width: 320px;">
+            <span class="input-group-text bg-white border-end-0 text-muted">
+                <i class="bi bi-search"></i>
+            </span>
+            <input 
+                type="text" 
+                id="taskSearchInput" 
+                class="form-control border-start-0 ps-0" 
+                placeholder="Rechercher (nom, tél, travail)..." 
+                onkeyup="filterTasks()"
+            >
+        </div>
+    </div>
 
     <!-- TAB 1: TODAY TASKS -->
     <div class="card-box">
@@ -441,6 +455,32 @@ function closeAllModals() {
     document.getElementById("modalBox").style.display = "none";
     document.getElementById("taskModal").style.display = "none";
     document.getElementById("globalOverlay").style.display = "none";
+}
+
+// REAL-TIME SEARCH FILTER
+function filterTasks() {
+    // 1. Get the typed search phrase and convert to lowercase for easy matching
+    const query = document.getElementById("taskSearchInput").value.toLowerCase();
+    
+    // 2. Select all task rows across all table bodies
+    const rows = document.querySelectorAll(".card-box table tbody tr");
+
+    rows.forEach(row => {
+        // Skip "empty state" placeholder rows (e.g., "Aucune tâche...")
+        if (row.children.length === 1 && row.children[0].classList.contains("text-muted")) {
+            return;
+        }
+
+        // Get text content of the row
+        const rowText = row.innerText.toLowerCase();
+
+        // 3. Toggle row visibility based on match
+        if (rowText.includes(query)) {
+            row.style.display = ""; // Show row
+        } else {
+            row.style.display = "none"; // Hide row
+        }
+    });
 }
 </script>
 
