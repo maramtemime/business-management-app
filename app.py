@@ -209,6 +209,14 @@ def get_task(index):
         })
     return jsonify({"error": "Task not found"}), 404
 
+@app.route('/delete_task/<int:task_id>', methods=['POST'])
+def delete_task(task_id):
+    task = Task.query.get(task_id)
+    if task:
+        db.session.delete(task)
+        db.session.commit()
+    return redirect(url_for('dashboard'))
+
 # --- AUTOMATIC TABLE CREATION BOOTSTRAPPING ENGINE ---
 if __name__ == "__main__":
     with app.app_context():
