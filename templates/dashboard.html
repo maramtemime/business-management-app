@@ -89,9 +89,9 @@
                     <td>{{ t.invoice }} DT</td>
                     <td>
                         {% if t.done %}
-                            <a href="/toggle_done/{{ t.index }}" class="done-btn done">Fait</a>
+                            <a href="{{ url_for('toggle_done', index=t.id) }}" class="badge bg-success text-decoration-none">Terminé</a>
                         {% else %}
-                            <a href="/toggle_done/{{ t.index }}" class="done-btn not-done">À faire</a>
+                            <a href="{{ url_for('toggle_done', index=t.id) }}" class="badge bg-danger text-decoration-none">À faire</a>
                         {% endif %}
                     </td>
                 </tr>

@@ -163,11 +163,15 @@ def add_task():
 
 @app.route("/toggle_done/<int:index>")
 def toggle_done(index):
-    # 'index' in our layout route variables now represents the Database row 'id' primary key
+    # Retrieve task using primary key ID
     task = Task.query.get(index)
     if task:
         task.done = not task.done
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            
     return redirect(url_for("dashboard"))
 
 @app.route("/update_task", methods=["POST"])
