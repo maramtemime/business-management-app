@@ -444,3 +444,13 @@ table.table tbody tr.has-note:hover td {
 .clickable-card:active {
     transform: translateY(0);
 }
+/* Instantly hide sidebar during initial render if saved in localStorage */
+html.preload-sidebar-hidden body:not(.sidebar-hidden) {
+    /* Apply your existing sidebar-hidden styles here */
+}
+
+/* Ensure body respects preload class instantly */
+body.sidebar-hidden,
+html.preload-sidebar-hidden body {
+    /* Your existing CSS rules for hidden sidebar */
+}

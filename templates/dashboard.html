@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+    <script>
+        if (localStorage.getItem("sidebarHidden") === "true") {
+            document.documentElement.classList.add("preload-sidebar-hidden");
+        }
+    </script>
     <meta charset="UTF-8">
     <title>Dashboard</title>
 
@@ -16,7 +21,11 @@
 </head>
 
 <body class="dashboard-body">
-
+    <script>
+        if (localStorage.getItem("sidebarHidden") === "true") {
+            document.body.classList.add("sidebar-hidden");
+        }
+    </script>
 <button class="floating-menu-btn" onclick="toggleSidebar()" title="Afficher le menu">
     <i class="bi bi-list"></i>
 </button>
@@ -439,8 +448,28 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 // JavaScript logic to manage sidebar toggle visibility
+document.addEventListener("DOMContentLoaded", function () {
+    const sidebar = document.getElementById("sidebar"); // Adjust to your sidebar ID
+    const savedState = localStorage.getItem("sidebarState");
+
+    // Restore saved state on page load
+    if (savedState === "hidden" && sidebar) {
+        sidebar.classList.add("hidden"); // Adjust class name if you use 'd-none', 'collapsed', etc.
+    }
+});
+
 function toggleSidebar() {
-    document.body.classList.toggle("sidebar-hidden");
+    const sidebar = document.getElementById("sidebar"); // Adjust to your sidebar ID
+    if (!sidebar) return;
+
+    sidebar.classList.toggle("hidden"); // Adjust class name to match your CSS
+
+    // Save current state in localStorage
+    if (sidebar.classList.contains("hidden")) {
+        localStorage.setItem("sidebarState", "hidden");
+    } else {
+        localStorage.setItem("sidebarState", "visible");
+    }
 }
 
 function openModal() {
@@ -754,6 +783,25 @@ function scrollToSection(sectionId) {
             block: 'start' 
         });
     }
+}
+// 1. Restore saved state as soon as DOM is ready
+document.addEventListener("DOMContentLoaded", function () {
+    const isHidden = localStorage.getItem("sidebarHidden");
+    if (isHidden === "true") {
+        document.body.classList.add("sidebar-hidden");
+    }
+});
+
+// 2. Main toggle function for button clicks
+function toggleSidebar() {
+    if (!document.body) return;
+
+    // Toggle the class on body
+    document.body.classList.toggle("sidebar-hidden");
+
+    // Check if it's currently hidden and remember it
+    const isHidden = document.body.classList.contains("sidebar-hidden");
+    localStorage.setItem("sidebarHidden", isHidden ? "true" : "false");
 }
 </script>
 
