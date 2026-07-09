@@ -289,6 +289,22 @@ def check_date_tasks():
         "tasks": task_list
     })
 
+@app.route("/archive")
+def archive():
+    # Fetch all tasks marked as completed, ordered by most recent date
+    archived_tasks = Task.query.filter_by(done=True).order_by(Task.date.desc()).all()
+    
+    # Calculate lifetime stats
+    total_completed = len(archived_tasks)
+    total_revenue = sum(task.invoice for task in archived_tasks if task.invoice)
+
+    return render_template(
+        "archive.html",
+        tasks=archived_tasks,
+        total_completed=total_completed,
+        total_revenue=total_revenue
+    )
+
 # --- AUTOMATIC TABLE CREATION BOOTSTRAPPING ENGINE ---
 if __name__ == "__main__":
     with app.app_context():
