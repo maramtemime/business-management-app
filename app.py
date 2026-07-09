@@ -251,6 +251,33 @@ def delete_task(task_id):
         db.session.commit()
     return redirect(url_for('dashboard'))
 
+@app.route("/check_date_tasks")
+def check_date_tasks():
+    date_val = request.args.get("date", "").strip()
+    if not date_val:
+        return jsonify({"count": 0, "tasks": []})
+    
+    # Query all tasks for the given date
+    tasks = Task.query.filter_by(date=date_val).all()
+    
+    task_list = []
+    for t in tasks:
+        task_list.append({
+            "id": t.id,
+            "client_name": t.client_name,
+            "phone": t.phone,
+            "description": t.description,
+            "tools": t.tools or "---",
+            "invoice": t.invoice,
+            "done": t.done,
+            "note": t.note or "Aucune note."
+        })
+
+    return jsonify({
+        "count": len(task_list),
+        "tasks": task_list
+    })
+
 # --- AUTOMATIC TABLE CREATION BOOTSTRAPPING ENGINE ---
 if __name__ == "__main__":
     with app.app_context():

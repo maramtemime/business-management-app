@@ -180,18 +180,86 @@
     <h5 class="mb-3">Ajouter une tâche</h5>
     
     <div style="max-height: 70vh; overflow-y: auto; overflow-x: hidden; padding-right: 4px;">
-        <form action="/add_task" method="POST">
+        <form id="addTaskForm" action="/add_task" method="POST">
             <input class="form-control mb-2" name="client_name" placeholder="Nom client" required>
+            
             <div class="mb-2">
                 <input class="form-control" name="phone" id="add_phone" placeholder="Téléphone" required>
-                    <div id="phoneError" class="text-danger small mt-1 d-none">
-                        Le numéro de téléphone doit contenir uniquement des chiffres.
-                    </div>
+                <div id="phoneError" class="text-danger small mt-1 d-none">
+                    Le numéro de téléphone doit contenir uniquement des chiffres.
+                </div>
             </div>
+
             <input class="form-control mb-2" name="description" placeholder="Travail" required>
             <input class="form-control mb-2" name="tools" placeholder="Outils">
             <input class="form-control mb-2" name="invoice" type="number" step="0.01" placeholder="Facture (DT)" required>
-            <input class="form-control mb-2" name="date" id="add_date" type="text" placeholder="Sélectionner une date" required>
+            
+            <div class="mb-2">
+                <input 
+                    class="form-control" 
+                    name="date" 
+                    id="add_date" 
+                    type="text" 
+                    placeholder="Sélectionner une date" 
+                    onfocus="(this.type='date')" 
+                    onblur="if(!this.value) this.type='text'" 
+                    required
+                >
+                
+                <div id="dateTaskNotice" class="alert alert-info py-1 px-2 mt-1 small d-none" style="cursor: pointer;" onclick="toggleDateTasksDetail()">
+                    <i class="bi bi-info-circle me-1"></i> 
+                    <span id="dateNoticeText"></span>
+                    <i class="bi bi-chevron-right float-end ms-1"></i>
+                </div>
+            </div>
+
+            <div id="dateTasksDetailCard" class="border rounded p-3 bg-white shadow-sm mb-3 d-none">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <h6 class="mb-0 fw-bold text-primary">Tâches existantes</h6>
+                    <button type="button" class="btn-close btn-sm" onclick="closeDateTasksDetail()"></button>
+                </div>
+                <hr class="my-2">
+
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Client / Téléphone</span>
+                    <strong id="dtcClient">---</strong> (<span id="dtcPhone" class="text-dark">---</span>)
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Travail / Description</span>
+                    <span id="dtcDescription" class="text-dark fw-semibold">---</span>
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Outils / Pièces</span>
+                    <span id="dtcTools" class="text-dark">---</span>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-6">
+                        <span class="text-muted small d-block">Facture</span>
+                        <span id="dtcInvoice" class="badge bg-success fs-6">0.0 DT</span>
+                    </div>
+                    <div class="col-6">
+                        <span class="text-muted small d-block">Statut</span>
+                        <span id="dtcStatus" class="badge bg-secondary">---</span>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Notes</span>
+                    <p id="dtcNote" class="bg-light p-2 rounded small text-muted mb-0">Aucune note.</p>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-circle" id="prevTaskBtn" onclick="navigateDateTasks(-1)">
+                        <i class="bi bi-arrow-left"></i>
+                    </button>
+
+                    <span class="small fw-bold text-muted" id="dateTaskCounter">1 / 1</span>
+
+                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-circle" id="nextTaskBtn" onclick="navigateDateTasks(1)">
+                        <i class="bi bi-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
             <textarea class="form-control mb-3" name="note" rows="2" placeholder="Notes (optionnel)..."></textarea>
             
             <div class="pb-1">
@@ -504,6 +572,127 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 });
+document.addEventListener("DOMContentLoaded", function () {
+    const dateInput = document.getElementById("add_date");
+    const dateNotice = document.getElementById("dateTaskNotice");
+    const dateNoticeText = document.getElementById("dateNoticeText");
+
+    if (dateInput) {
+        dateInput.addEventListener("change", function () {
+            const selectedDate = dateInput.value;
+            if (!selectedDate) {
+                dateNotice.classList.add("d-none");
+                return;
+            }
+
+            // Fetch existing task count for the selected date
+            fetch(`/check_date_tasks?date=${encodeURIComponent(selectedDate)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.count > 0) {
+                        dateNoticeText.textContent = `Vous avez déjà ${data.count} tâche(s) prévue(s) pour cette date.`;
+                        dateNotice.classList.remove("d-none");
+                    } else {
+                        dateNoticeText.textContent = `Aucune tâche prévue pour cette date.`;
+                        dateNotice.classList.remove("d-none");
+                    }
+                })
+                .catch(err => console.error("Error checking date tasks:", err));
+        });
+    }
+});
+let currentSelectedDateTasks = [];
+let currentDateTaskIndex = 0;
+
+document.addEventListener("DOMContentLoaded", function () {
+    const dateInput = document.getElementById("add_date");
+    const dateNotice = document.getElementById("dateTaskNotice");
+    const dateNoticeText = document.getElementById("dateNoticeText");
+
+    if (dateInput) {
+        dateInput.addEventListener("change", function () {
+            const selectedDate = dateInput.value;
+            closeDateTasksDetail();
+
+            if (!selectedDate) {
+                dateNotice.classList.add("d-none");
+                currentSelectedDateTasks = [];
+                return;
+            }
+
+            // Fetch tasks array for selected date
+            fetch(`/check_date_tasks?date=${encodeURIComponent(selectedDate)}`)
+                .then(res => res.json())
+                .then(data => {
+                    currentSelectedDateTasks = data.tasks || [];
+                    if (data.count > 0) {
+                        dateNoticeText.textContent = `Vous avez ${data.count} tâche(s) prévue(s) ce jour (Cliquer pour voir)`;
+                        dateNotice.classList.remove("d-none");
+                    } else {
+                        dateNotice.classList.add("d-none");
+                    }
+                })
+                .catch(err => console.error("Error fetching tasks for date:", err));
+        });
+    }
+});
+
+function toggleDateTasksDetail() {
+    if (currentSelectedDateTasks.length === 0) return;
+    
+    const card = document.getElementById("dateTasksDetailCard");
+    if (card.classList.contains("d-none")) {
+        currentDateTaskIndex = 0;
+        renderDateTaskDetail();
+        card.classList.remove("d-none");
+    } else {
+        card.classList.add("d-none");
+    }
+}
+
+function closeDateTasksDetail() {
+    const card = document.getElementById("dateTasksDetailCard");
+    if (card) card.classList.add("d-none");
+}
+
+function renderDateTaskDetail() {
+    if (currentSelectedDateTasks.length === 0) return;
+
+    const task = currentSelectedDateTasks[currentDateTaskIndex];
+
+    document.getElementById("dtcClient").textContent = task.client_name;
+    document.getElementById("dtcPhone").textContent = task.phone;
+    document.getElementById("dtcDescription").textContent = task.description;
+    document.getElementById("dtcTools").textContent = task.tools;
+    document.getElementById("dtcInvoice").textContent = `${task.invoice} DT`;
+    document.getElementById("dtcNote").textContent = task.note;
+
+    // Status Badge
+    const statusElem = document.getElementById("dtcStatus");
+    if (task.done) {
+        statusElem.textContent = "Terminée";
+        statusElem.className = "badge bg-success";
+    } else {
+        statusElem.textContent = "En cours";
+        statusElem.className = "badge bg-danger";
+    }
+
+    // Counter update
+    const total = currentSelectedDateTasks.length;
+    document.getElementById("dateTaskCounter").textContent = `${currentDateTaskIndex + 1} / ${total}`;
+
+    // Enable / Disable Navigation Buttons
+    document.getElementById("prevTaskBtn").disabled = (currentDateTaskIndex === 0);
+    document.getElementById("nextTaskBtn").disabled = (currentDateTaskIndex === total - 1);
+}
+
+function navigateDateTasks(direction) {
+    const newIndex = currentDateTaskIndex + direction;
+    if (newIndex >= 0 && newIndex < currentSelectedDateTasks.length) {
+        currentDateTaskIndex = newIndex;
+        renderDateTaskDetail();
+    }
+}
 </script>
 
 </body>
