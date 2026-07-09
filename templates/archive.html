@@ -39,37 +39,37 @@
     </div>
 
     <div class="row g-3 mb-4">
-    <div class="col-12 col-md-6">
-        <div class="card card-pastel-green p-3 rounded-3 shadow-sm border-0 h-100">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <span class="small text-uppercase fw-semibold text-success" style="letter-spacing: 0.5px;">
-                        Total Tâches Terminées
-                    </span>
-                    <h2 class="fw-bold mb-0 mt-1 text-success">{{ total_completed }}</h2>
-                </div>
-                <div class="kpi-icon">
-                    <i class="bi bi-check-circle-fill text-success fs-1"></i>
+        <div class="col-12 col-md-6">
+            <div class="card card-pastel-green p-3 rounded-3 shadow-sm border-0 h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="small text-uppercase fw-semibold text-success" style="letter-spacing: 0.5px;">
+                            Total Tâches Terminées
+                        </span>
+                        <h2 class="fw-bold mb-0 mt-1 text-success" id="completedCount">{{ total_completed }}</h2>
+                    </div>
+                    <div class="kpi-icon">
+                        <i class="bi bi-check-circle-fill text-success fs-1"></i>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class="col-12 col-md-6">
-        <div class="card p-3 rounded-3 shadow-sm h-100" style="background-color: #fde8e8; border: 1px solid #f8b4b4;">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <span class="small text-uppercase fw-semibold text-danger" style="letter-spacing: 0.5px;">
-                        Tâches Annulées
-                    </span>
-                    <h2 class="fw-bold mb-0 mt-1 text-danger">{{ total_canceled }}</h2>
-                </div>
-                <div class="kpi-icon">
-                    <i class="bi bi-x-circle-fill text-danger fs-1"></i>
+        <div class="col-12 col-md-6">
+            <div class="card p-3 rounded-3 shadow-sm h-100" style="background-color: #fde8e8; border: 1px solid #f8b4b4;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="small text-uppercase fw-semibold text-danger" style="letter-spacing: 0.5px;">
+                            Tâches Annulées
+                        </span>
+                        <h2 class="fw-bold mb-0 mt-1 text-danger" id="canceledCount">{{ total_canceled }}</h2>
+                    </div>
+                    <div class="kpi-icon">
+                        <i class="bi bi-x-circle-fill text-danger fs-1"></i>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
     </div>
 
     <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
@@ -89,7 +89,7 @@
                     </thead>
                     <tbody>
                         {% for task in tasks %}
-                        <tr ondblclick="openTask({{ task.id }})" style="cursor: pointer;">
+                        <tr ondblclick="openTask({{ task.id }})" style="cursor: pointer;" data-status="{% if task.canceled %}canceled{% else %}completed{% endif %}">
                             <td class="ps-3 fw-medium text-muted">{{ task.date }}</td>
                             <td class="fw-bold text-dark">{{ task.client_name }}</td>
                             <td>
@@ -146,11 +146,15 @@ function filterArchiveTable() {
     const todayStr = `${currentYear}-${currentMonth}-${String(now.getDate()).padStart(2, '0')}`;
     const monthStr = `${currentYear}-${currentMonth}`;
 
+    let visibleCompleted = 0;
+    let visibleCanceled = 0;
+
     tableRows.forEach(row => {
         if (row.id === 'noDataRow') return;
 
         const textContent = row.textContent.toLowerCase();
         const dateCell = row.cells[0]?.textContent.trim();
+        const status = row.getAttribute('data-status');
 
         const matchesSearch = textContent.includes(searchInput);
 
@@ -165,10 +169,21 @@ function filterArchiveTable() {
 
         if (matchesSearch && matchesDate) {
             row.style.display = '';
+            if (status === 'canceled') {
+                visibleCanceled++;
+            } else {
+                visibleCompleted++;
+            }
         } else {
             row.style.display = 'none';
         }
     });
+
+    const completedElem = document.getElementById('completedCount');
+    const canceledElem = document.getElementById('canceledCount');
+
+    if (completedElem) completedElem.textContent = visibleCompleted;
+    if (canceledElem) canceledElem.textContent = visibleCanceled;
 }
 </script>
 {% endblock %}
