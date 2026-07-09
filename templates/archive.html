@@ -12,35 +12,6 @@
         </div>
     </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-md-6">
-            <div class="card card-pastel-green p-3 rounded-3 shadow-sm border-0 h-100">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="small text-uppercase fw-semibold" style="letter-spacing: 0.5px;">Total Tâches Terminées</span>
-                        <h2 class="fw-bold mb-0 mt-1">{{ total_completed }}</h2>
-                    </div>
-                    <div class="kpi-icon">
-                        <i class="bi bi-check-circle-fill text-success fs-1"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-6">
-            <div class="card bg-white p-3 rounded-3 shadow-sm border h-100">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="small text-uppercase fw-semibold text-muted" style="letter-spacing: 0.5px;">Facturation Cumulée</span>
-                        <h2 class="fw-bold mb-0 mt-1 text-primary">{{ "%.1f"|format(total_revenue) }} DT</h2>
-                    </div>
-                    <div class="kpi-icon">
-                        <i class="bi bi-cash-stack text-primary fs-1"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="card shadow-sm border-0 mb-4 p-3 rounded-3 bg-white">
         <div class="row g-3 align-items-center">
             <div class="col-12 col-md-8">
@@ -62,6 +33,40 @@
                         <option value="this-month">Ce mois-ci</option>
                         <option value="this-year">Cette année</option>
                     </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-6">
+            <div class="card card-pastel-green p-3 rounded-3 shadow-sm border-0 h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="small text-uppercase fw-semibold text-success" style="letter-spacing: 0.5px;">
+                            Total Tâches Terminées
+                        </span>
+                        <h2 class="fw-bold mb-0 mt-1 text-success">{{ total_completed }}</h2>
+                    </div>
+                    <div class="kpi-icon">
+                        <i class="bi bi-check-circle-fill text-success fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+            <div class="card p-3 rounded-3 shadow-sm border-0 h-100" style="background-color: #fde8e8;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="small text-uppercase fw-semibold text-danger" style="letter-spacing: 0.5px;">
+                            Tâches Annulées
+                        </span>
+                        <h2 class="fw-bold mb-0 mt-1 text-danger">{{ total_canceled }}</h2>
+                    </div>
+                    <div class="kpi-icon">
+                        <i class="bi bi-x-circle-fill text-danger fs-1"></i>
+                    </div>
                 </div>
             </div>
         </div>

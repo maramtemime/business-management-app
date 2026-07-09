@@ -16,12 +16,13 @@ class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     client_name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(20), nullable=False)
-    direction = db.Column(db.String(200), nullable=True) # <--- NEW FIELD HERE
+    direction = db.Column(db.String(200), nullable=True)
     description = db.Column(db.Text, nullable=False)
     tools = db.Column(db.Text, nullable=True)
     invoice = db.Column(db.Float, default=0.0)
     date = db.Column(db.String(10), nullable=False)
     done = db.Column(db.Boolean, default=False)
+    canceled = db.Column(db.Boolean, default=False) # <--- ADDED CANCELED FIELD HERE
     note = db.Column(db.Text, nullable=True)
 
 def get_time_diff(task_date):
@@ -296,20 +297,24 @@ def check_date_tasks():
         "tasks": task_list
     })
 
-@app.route("/archive")
+@app.route('/archive')
 def archive():
-    # Fetch all tasks marked as completed, ordered by most recent date
+    # 1. Fetch completed tasks
     archived_tasks = Task.query.filter_by(done=True).order_by(Task.date.desc()).all()
-    
-    # Calculate lifetime stats
     total_completed = len(archived_tasks)
-    total_revenue = sum(task.invoice for task in archived_tasks if task.invoice)
+
+    # 2. Count canceled tasks (assuming you have a canceled status/flag, e.g., canceled=True or status=='canceled')
+    # If you track canceled tasks with a boolean field `canceled`:
+    total_canceled = Task.query.filter_by(canceled=True).count()
+    
+    # Or if you use a status string:
+    # total_canceled = Task.query.filter_by(status='canceled').count()
 
     return render_template(
-        "archive.html",
+        'archive.html',
         tasks=archived_tasks,
         total_completed=total_completed,
-        total_revenue=total_revenue
+        total_canceled=total_canceled
     )
 
 # --- AUTOMATIC TABLE CREATION BOOTSTRAPPING ENGINE ---
