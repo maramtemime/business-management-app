@@ -88,11 +88,22 @@ def dashboard():
 
     errors = request.args.getlist("errors")
 
+    # --- SQLALCHEMY QUERY ---
+    all_tasks = Task.query.all()
+    
+    # Calculate counts for summary badges
+    count_today = len([t for t in all_tasks if t.date == today])
+    count_pending = len([t for t in all_tasks if not t.done])
+    count_done = len([t for t in all_tasks if t.done])
+
     return render_template(
         "dashboard.html",
         today_tasks=today_tasks,
         pending_tasks=pending_tasks,
         done_week_tasks=done_week_tasks,
+        count_today=count_today,
+        count_pending=count_pending,
+        count_done=count_done,
         today=today_display,
         week_range=week_range_string,
         errors=errors

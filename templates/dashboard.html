@@ -48,6 +48,59 @@
     <h3>Gestion des tâches</h3>
     <p class="text-muted">{{ today }}</p>
 
+    <div class="mb-4">
+    <p class="text-muted mb-2 fw-semibold">
+        <i class="bi bi-calendar-event me-1"></i> Pour aujourd'hui :
+    </p>
+
+    <div class="row g-3">
+        <div class="col-12 col-md-4">
+            <div class="card card-pastel-red rounded-3 shadow-sm h-100 p-3 clickable-card" 
+                 onclick="scrollToSection('section-today')">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="d-block fw-semibold text-uppercase small" style="letter-spacing: 0.5px;">Tâches du jour</span>
+                        <h2 class="mb-0 fw-bold mt-1">{{ count_today }}</h2>
+                    </div>
+                    <div class="kpi-icon">
+                        <i class="bi bi-calendar-check-fill"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-4">
+            <div class="card card-pastel-yellow rounded-3 shadow-sm h-100 p-3 clickable-card" 
+                 onclick="scrollToSection('section-pending')">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="d-block fw-semibold text-uppercase small" style="letter-spacing: 0.5px;">Tâches en cours</span>
+                        <h2 class="mb-0 fw-bold mt-1">{{ count_pending }}</h2>
+                    </div>
+                    <div class="kpi-icon">
+                        <i class="bi bi-hourglass-split"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-4">
+            <div class="card card-pastel-green rounded-3 shadow-sm h-100 p-3 clickable-card" 
+                 onclick="scrollToSection('section-done')">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="d-block fw-semibold text-uppercase small" style="letter-spacing: 0.5px;">Tâches terminées</span>
+                        <h2 class="mb-0 fw-bold mt-1">{{ count_done }}</h2>
+                    </div>
+                    <div class="kpi-icon">
+                        <i class="bi bi-check-circle-fill"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <button class="btn btn-primary mb-3" onclick="openModal()">
             <i class="bi bi-plus-circle"></i> Ajouter une tâche
@@ -66,7 +119,7 @@
         </div>
     </div>
 
-    <div class="card-box">
+    <div class="card-box" id="section-today">
         <h5><i class="bi bi-calendar-check"></i> Tâches du jour</h5>
         <table class="table align-middle">
             <thead>
@@ -102,7 +155,7 @@
         </table>
     </div>
 
-    <div class="card-box">
+    <div class="card-box" id="section-pending">
         <h5><i class="bi bi-hourglass-split"></i> Tâches en cours</h5>
         <table class="table align-middle">
             <thead>
@@ -142,7 +195,7 @@
         </table>
     </div>
 
-    <div class="card-box">
+    <div class="card-box" id="section-done">
         <h5><i class="bi bi-check-circle"></i> Tâches terminées (du {{ week_range }})</h5>
         <table class="table align-middle">
             <thead>
@@ -691,6 +744,15 @@ function navigateDateTasks(direction) {
     if (newIndex >= 0 && newIndex < currentSelectedDateTasks.length) {
         currentDateTaskIndex = newIndex;
         renderDateTaskDetail();
+    }
+}
+function scrollToSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (section) {
+        section.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+        });
     }
 }
 </script>

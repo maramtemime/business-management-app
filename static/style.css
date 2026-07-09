@@ -406,3 +406,41 @@ table.table tbody tr.has-note:hover td {
 .modal-box::-webkit-scrollbar-thumb:hover {
     background: #2552e2;
 }
+
+/* Custom Soft Pastel KPI Cards */
+.card-pastel-red {
+    background-color: #fde8e8;
+    border: 2px solid #f87171 !important;
+    color: #991b1b;
+}
+
+.card-pastel-yellow {
+    background-color: #fef9c3;
+    border: 2px solid #facc15 !important;
+    color: #854d0e;
+}
+
+.card-pastel-green {
+    background-color: #dcfce7;
+    border: 2px solid #4ade80 !important;
+    color: #166534;
+}
+
+.kpi-icon {
+    font-size: 1.8rem;
+    opacity: 0.85;
+}
+
+.clickable-card {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.clickable-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1) !important;
+}
+
+.clickable-card:active {
+    transform: translateY(0);
+}
