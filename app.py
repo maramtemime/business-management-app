@@ -13,13 +13,14 @@ db = SQLAlchemy(app)
 
 # --- DATABASE MODEL (TABLE STRUCTURE) ---
 class Task(db.Model):
-    id = db.Column(db.Integer, primary_key=True) # Automatically increments (replaces our old index system)
+    id = db.Column(db.Integer, primary_key=True)
     client_name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(20), nullable=False)
+    direction = db.Column(db.String(200), nullable=True) # <--- NEW FIELD HERE
     description = db.Column(db.Text, nullable=False)
     tools = db.Column(db.Text, nullable=True)
     invoice = db.Column(db.Float, default=0.0)
-    date = db.Column(db.String(10), nullable=False) # Stores as YYYY-MM-DD string
+    date = db.Column(db.String(10), nullable=False)
     done = db.Column(db.Boolean, default=False)
     note = db.Column(db.Text, nullable=True)
 
@@ -116,6 +117,7 @@ from datetime import datetime, date
 def add_task():
     client_name = request.form.get("client_name", "").strip()
     phone = request.form.get("phone", "").strip()
+    direction = request.form.get("direction", "").strip()  # <--- 1. EXTRACT DIRECTION
     description = request.form.get("description", "").strip()
     tools = request.form.get("tools", "").strip()
     invoice_raw = request.form.get("invoice", "0").strip()
@@ -124,6 +126,8 @@ def add_task():
     
     errors = []
 
+    # If you want 'direction' to be mandatory, add 'not direction' below.
+    # Otherwise, leave it as is if it's optional!
     if not client_name or not description or not date_value:
         errors.append("Veuillez remplir tous les champs obligatoires.")
 
@@ -156,6 +160,7 @@ def add_task():
     new_task = Task(
         client_name=client_name,
         phone=phone,
+        direction=direction,  # <--- 2. PASS TO TASK MODEL
         description=description,
         tools=tools,
         invoice=invoice,
@@ -212,6 +217,7 @@ def update_task():
             # Mutate database record values
             task.client_name = request.form.get("client_name", "").strip()
             task.phone = request.form.get("phone", "").strip()
+            task.direction = request.form.get("direction", "").strip()
             task.description = request.form.get("description", "").strip()
             task.tools = request.form.get("tools", "").strip()
             
@@ -245,6 +251,7 @@ def get_task(index):
             "id": task.id,
             "client_name": task.client_name,
             "phone": task.phone,
+            "direction": task.direction or "",
             "description": task.description,
             "tools": task.tools,
             "invoice": task.invoice,

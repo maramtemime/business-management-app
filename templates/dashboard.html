@@ -144,6 +144,7 @@
                 <tr>
                     <th>Client</th>
                     <th>Téléphone</th>
+                    <th>Lieu</th>
                     <th>Travail</th>
                     <th>Outils</th>
                     <th>Facture</th>
@@ -155,6 +156,7 @@
                 <tr ondblclick="openTask({{ t.id }})" style="cursor: pointer;" class="{% if t.note and t.note|string|trim != '' %}has-note{% endif %}">
                     <td>{{ t.client_name }}</td>
                     <td>{{ t.phone }}</td>
+                    <td>{{ t.direction or '-' }}</td>
                     <td>{{ t.description }}</td>
                     <td>{{ t.tools }}</td>
                     <td>{{ t.invoice }} DT</td>
@@ -179,8 +181,9 @@
             <thead>
                 <tr>
                     <th>Client</th>
-                    <th>Travail</th>
                     <th>Téléphone</th>
+                    <th>Lieu</th>
+                    <th>Travail</th>
                     <th>Outils</th>
                     <th>Facture</th>
                     <th>Date</th>
@@ -191,8 +194,9 @@
                 {% for t in pending_tasks %}
                 <tr ondblclick="openTask({{ t.id }})" style="cursor: pointer;" class="{% if t.note and t.note|string|trim != '' %}has-note{% endif %}">
                     <td>{{ t.client_name }}</td>
-                    <td>{{ t.description }}</td>
                     <td>{{ t.phone }}</td>
+                    <td>{{ t.direction or '-' }}</td>
+                    <td>{{ t.description }}</td>
                     <td>{{ t.tools }}</td>
                     <td>{{ t.invoice }} DT</td>
                     <td>{{ t.date_display }}</td>
@@ -219,8 +223,9 @@
             <thead>
                 <tr>
                     <th>Client</th>
-                    <th>Travail</th>
                     <th>Téléphone</th>
+                    <th>Lieu </th>
+                    <th>Travail</th>
                     <th>Outils</th>
                     <th>Facture</th>
                     <th>Date</th>
@@ -230,8 +235,9 @@
                 {% for t in done_week_tasks %}
                 <tr ondblclick="openTask({{ t.id }})" style="cursor: pointer;" class="{% if t.note and t.note|string|trim != '' %}has-note{% endif %}">
                     <td>{{ t.client_name }}</td>
-                    <td>{{ t.description }}</td>
                     <td>{{ t.phone }}</td>
+                    <td>{{ t.direction or '-' }}</td>
+                    <td>{{ t.description }}</td>
                     <td>{{ t.tools }}</td>
                     <td>{{ t.invoice }} DT</td>
                     <td>{{ t.date_display }}</td>
@@ -260,7 +266,7 @@
                     Le numéro de téléphone doit contenir uniquement des chiffres.
                 </div>
             </div>
-
+            <input type="text" class="form-control" id="direction" name="direction" placeholder="Lieu / Direction">
             <input class="form-control mb-2" name="description" placeholder="Travail" required>
             <input class="form-control mb-2" name="tools" placeholder="Outils">
             <input class="form-control mb-2" name="invoice" type="number" step="0.01" placeholder="Facture (DT)" required>
@@ -350,10 +356,17 @@
             </button>
         </div>
         <hr class="my-2">
+        
         <div class="mb-2">
             <span class="text-muted small d-block">Téléphone</span>
             <strong id="viewPhone" class="text-dark">---</strong>
         </div>
+
+        <div class="mb-2">
+            <span class="text-muted small d-block">Direction / Lieu</span>
+            <span id="viewDirection" class="text-dark fw-semibold">---</span>
+        </div>
+
         <div class="mb-2">
             <span class="text-muted small d-block">Travail / Description</span>
             <span id="viewDescription" class="text-dark fw-semibold">---</span>
@@ -397,6 +410,7 @@
             
             <input class="form-control mb-2" name="client_name" id="client_name" placeholder="Client" required>
             <input class="form-control mb-2" name="phone" id="phone" placeholder="Téléphone" required>
+            <input type="text" class="form-control" id="edit_direction" name="direction" placeholder="Lieu / Direction">
             <input class="form-control mb-2" name="description" id="description" placeholder="Travail" required>
             <input class="form-control mb-2" name="tools" id="tools" placeholder="Outils">
             <input class="form-control mb-2" name="invoice" id="invoice" type="number" step="0.01" required>
@@ -496,48 +510,72 @@ function openTask(taskId) {
     fetch(`/get_task/${taskId}`)
         .then(response => response.json())
         .then(data => {
+            // Helper function to safely update innerText
+            const setTxt = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = val;
+            };
+
+            // Helper function to safely update input value
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.value = val;
+            };
+
             // 1. Populate Read-Only Card View
-            document.getElementById("viewClientName").innerText = data.client_name;
-            document.getElementById("viewPhone").innerText = data.phone || "---";
-            document.getElementById("viewDescription").innerText = data.description || "---";
-            document.getElementById("viewTools").innerText = data.tools || "---";
-            document.getElementById("viewInvoice").innerText = `${data.invoice} DT`;
-            document.getElementById("viewDate").innerText = data.date;
-            document.getElementById("viewNote").innerText = data.note || "Aucune note.";
+            setTxt("viewClientName", data.client_name || "");
+            setTxt("viewPhone", data.phone || "---");
+            setTxt("viewDirection", data.direction || "---");
+            setTxt("viewDescription", data.description || "---");
+            setTxt("viewTools", data.tools || "---");
+            setTxt("viewInvoice", `${data.invoice} DT`);
+            setTxt("viewDate", data.date || "---");
+            setTxt("viewNote", data.note || "Aucune note.");
 
             const statusBadge = document.getElementById("viewStatus");
-            if (data.done) {
-                statusBadge.className = "badge bg-success";
-                statusBadge.innerText = "Terminée";
-            } else {
-                statusBadge.className = "badge bg-warning text-dark";
-                statusBadge.innerText = "En cours";
+            if (statusBadge) {
+                if (data.done) {
+                    statusBadge.className = "badge bg-success";
+                    statusBadge.innerText = "Terminée";
+                } else {
+                    statusBadge.className = "badge bg-warning text-dark";
+                    statusBadge.innerText = "En cours";
+                }
             }
 
             // 2. Populate Edit Inputs
-            document.getElementById("taskIndex").value = data.id;
-            document.getElementById("client_name").value = data.client_name || "";
-            document.getElementById("phone").value = data.phone || "";
-            document.getElementById("description").value = data.description || "";
-            document.getElementById("tools").value = data.tools || "";
-            document.getElementById("invoice").value = data.invoice || "";
+            setVal("taskIndex", data.id || "");
+            setVal("client_name", data.client_name || "");
+            setVal("phone", data.phone || "");
+            setVal("edit_direction", data.direction || "");
+            setVal("description", data.description || "");
+            setVal("tools", data.tools || "");
+            setVal("invoice", data.invoice || "");
             
             // Populate Date & Sync Flatpickr Instance safely
             const dateInput = document.getElementById("date");
-            dateInput.value = data.date || "";
-            if (dateInput._flatpickr) {
-                dateInput._flatpickr.setDate(data.date, true);
+            if (dateInput) {
+                dateInput.value = data.date || "";
+                if (dateInput._flatpickr) {
+                    dateInput._flatpickr.setDate(data.date, true);
+                }
             }
 
-            document.getElementById("taskDone").checked = data.done;
-            document.getElementById("note").value = data.note || "";
+            const taskDoneCheckbox = document.getElementById("taskDone");
+            if (taskDoneCheckbox) taskDoneCheckbox.checked = data.done;
+
+            setVal("note", data.note || "");
 
             // 3. Reset view to Detail Card mode by default
-            disableEditMode();
+            if (typeof disableEditMode === "function") {
+                disableEditMode();
+            }
 
             // 4. Display Modal
-            document.getElementById("globalOverlay").style.display = "block";
-            document.getElementById("taskModal").style.display = "block";
+            const globalOverlay = document.getElementById("globalOverlay");
+            const taskModal = document.getElementById("taskModal");
+            if (globalOverlay) globalOverlay.style.display = "block";
+            if (taskModal) taskModal.style.display = "block";
         })
         .catch(error => console.error("Error fetching task:", error));
 }
@@ -753,6 +791,7 @@ function renderDateTaskDetail() {
 
     document.getElementById("dtcClient").textContent = task.client_name;
     document.getElementById("dtcPhone").textContent = task.phone;
+    document.getElementById("dtcDirection").textContent = task.direction || "-";
     document.getElementById("dtcDescription").textContent = task.description;
     document.getElementById("dtcTools").textContent = task.tools;
     document.getElementById("dtcInvoice").textContent = `${task.invoice} DT`;
