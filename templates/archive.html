@@ -3,7 +3,6 @@
 {% block content %}
 <div class="container-fluid py-4">
     
-    <!-- PAGE HEADER -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-bold text-dark mb-1">
@@ -13,7 +12,6 @@
         </div>
     </div>
 
-    <!-- STATS SUMMARY CARDS -->
     <div class="row g-3 mb-4">
         <div class="col-12 col-md-6">
             <div class="card card-pastel-green p-3 rounded-3 shadow-sm border-0 h-100">
@@ -43,7 +41,6 @@
         </div>
     </div>
 
-    <!-- SEARCH & FILTER BAR -->
     <div class="card shadow-sm border-0 mb-4 p-3 rounded-3 bg-white">
         <div class="row g-3 align-items-center">
             <div class="col-12 col-md-8">
@@ -51,7 +48,7 @@
                     <span class="input-group-text bg-light border-end-0">
                         <i class="bi bi-search text-muted"></i>
                     </span>
-                    <input type="text" id="archiveSearch" onkeyup="filterArchiveTable()" class="form-control border-start-0 bg-light" placeholder="Rechercher par client, téléphone, travail, outils...">
+                    <input type="text" id="archiveSearch" onkeyup="filterArchiveTable()" class="form-control border-start-0 bg-light" placeholder="Rechercher par client, téléphone, lieu, travail, outils...">
                 </div>
             </div>
             <div class="col-12 col-md-4">
@@ -70,7 +67,6 @@
         </div>
     </div>
 
-    <!-- ARCHIVES TABLE CARD -->
     <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -80,27 +76,34 @@
                             <th class="ps-3">Date</th>
                             <th>Client</th>
                             <th>Téléphone</th>
+                            <th>Direction / Lieu</th>
                             <th>Travail</th>
                             <th>Outils</th>
                             <th>Facture</th>
-                            <th class="text-center">Statut</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for task in tasks %}
-                        <tr>
+                        <tr ondblclick="openTask({{ task.id }})" style="cursor: pointer;">
                             <td class="ps-3 fw-medium text-muted">{{ task.date }}</td>
-                            <td class="fw-bold text-dark">{{ task.client }}</td>
+                            <td class="fw-bold text-dark">{{ task.client_name }}</td>
                             <td>
                                 {% if task.phone %}
-                                    <a href="tel:{{ task.phone }}" class="text-decoration-none text-secondary">
-                                        <i class="bi bi-telephone me-1 small"></i>{{ task.phone }}
+                                    <a href="tel:{{ task.phone }}" class="text-decoration-none text-secondary fw-medium">
+                                        {{ task.phone }}
                                     </a>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
-                            <td>{{ task.work }}</td>
+                            <td>
+                                {% if task.direction %}
+                                    <span class="fw-medium text-dark">{{ task.direction }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ task.description }}</td>
                             <td>
                                 {% if task.tools %}
                                     <span class="badge bg-light text-dark border fw-normal">{{ task.tools }}</span>
@@ -109,11 +112,6 @@
                                 {% endif %}
                             </td>
                             <td class="fw-bold text-dark">{{ task.invoice }} DT</td>
-                            <td class="text-center">
-                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-2">
-                                    <i class="bi bi-check-circle-fill me-1"></i> Terminée
-                                </span>
-                            </td>
                         </tr>
                         {% else %}
                         <tr id="noDataRow">
@@ -131,7 +129,6 @@
 
 </div>
 
-<!-- INSTANT SEARCH & FILTER JAVASCRIPT -->
 <script>
 function filterArchiveTable() {
     const searchInput = document.getElementById('archiveSearch').value.toLowerCase();
@@ -150,10 +147,8 @@ function filterArchiveTable() {
         const textContent = row.textContent.toLowerCase();
         const dateCell = row.cells[0]?.textContent.trim();
 
-        // 1. Check Search Match
         const matchesSearch = textContent.includes(searchInput);
 
-        // 2. Check Date Match
         let matchesDate = true;
         if (dateFilter === 'today') {
             matchesDate = dateCell === todayStr;
@@ -163,7 +158,6 @@ function filterArchiveTable() {
             matchesDate = dateCell.startsWith(String(currentYear));
         }
 
-        // Display or hide row
         if (matchesSearch && matchesDate) {
             row.style.display = '';
         } else {
