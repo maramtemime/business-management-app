@@ -39,37 +39,37 @@
     </div>
 
     <div class="row g-3 mb-4">
-        <div class="col-12 col-md-6">
-            <div class="card card-pastel-green p-3 rounded-3 shadow-sm border-0 h-100">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="small text-uppercase fw-semibold text-success" style="letter-spacing: 0.5px;">
-                            Total Tâches Terminées
-                        </span>
-                        <h2 class="fw-bold mb-0 mt-1 text-success">{{ total_completed }}</h2>
-                    </div>
-                    <div class="kpi-icon">
-                        <i class="bi bi-check-circle-fill text-success fs-1"></i>
-                    </div>
+    <div class="col-12 col-md-6">
+        <div class="card card-pastel-green p-3 rounded-3 shadow-sm border-0 h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="small text-uppercase fw-semibold text-success" style="letter-spacing: 0.5px;">
+                        Total Tâches Terminées
+                    </span>
+                    <h2 class="fw-bold mb-0 mt-1 text-success">{{ total_completed }}</h2>
+                </div>
+                <div class="kpi-icon">
+                    <i class="bi bi-check-circle-fill text-success fs-1"></i>
                 </div>
             </div>
         </div>
+    </div>
 
-        <div class="col-12 col-md-6">
-            <div class="card p-3 rounded-3 shadow-sm border-0 h-100" style="background-color: #fde8e8;">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="small text-uppercase fw-semibold text-danger" style="letter-spacing: 0.5px;">
-                            Tâches Annulées
-                        </span>
-                        <h2 class="fw-bold mb-0 mt-1 text-danger">{{ total_canceled }}</h2>
-                    </div>
-                    <div class="kpi-icon">
-                        <i class="bi bi-x-circle-fill text-danger fs-1"></i>
-                    </div>
+    <div class="col-12 col-md-6">
+        <div class="card p-3 rounded-3 shadow-sm h-100" style="background-color: #fde8e8; border: 1px solid #f8b4b4;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="small text-uppercase fw-semibold text-danger" style="letter-spacing: 0.5px;">
+                        Tâches Annulées
+                    </span>
+                    <h2 class="fw-bold mb-0 mt-1 text-danger">{{ total_canceled }}</h2>
+                </div>
+                <div class="kpi-icon">
+                    <i class="bi bi-x-circle-fill text-danger fs-1"></i>
                 </div>
             </div>
         </div>
+    </div>
     </div>
 
     <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
