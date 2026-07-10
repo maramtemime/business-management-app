@@ -90,7 +90,15 @@
                     <tbody>
                         {% for task in tasks %}
                         <tr ondblclick="openTask({{ task.id }})" style="cursor: pointer;" data-status="{% if task.canceled %}canceled{% else %}completed{% endif %}">
-                            <td class="ps-3 fw-medium text-muted">{{ task.date }}</td>
+                            <!-- Date cell with soft status dot -->
+                            <td class="ps-3 fw-medium text-muted" style="vertical-align: middle;">
+                                {% if task.canceled %}
+                                    <span class="d-inline-block rounded-circle bg-danger opacity-75" style="width: 8px; height: 8px; margin-right: 8px; vertical-align: middle;" title="Annulée"></span>
+                                {% else %}
+                                    <span class="d-inline-block rounded-circle bg-success opacity-75" style="width: 8px; height: 8px; margin-right: 8px; vertical-align: middle;" title="Terminée"></span>
+                                {% endif %}
+                                <span style="vertical-align: middle;">{{ task.date }}</span>
+                            </td>
                             <td class="fw-bold text-dark">{{ task.client_name }}</td>
                             <td>
                                 {% if task.phone %}
