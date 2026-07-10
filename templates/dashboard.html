@@ -301,6 +301,12 @@
                     <span class="text-muted small d-block">Client / Téléphone</span>
                     <strong id="dtcClient">---</strong> (<span id="dtcPhone" class="text-dark">---</span>)
                 </div>
+
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Lieu / Direction</span>
+                    <span id="dtcDirection" class="text-dark fw-medium">---</span>
+                </div>
+
                 <div class="mb-2">
                     <span class="text-muted small d-block">Travail / Description</span>
                     <span id="dtcDescription" class="text-dark fw-semibold">---</span>
@@ -785,10 +791,11 @@ function closeDateTasksDetail() {
 }
 
 function renderDateTaskDetail() {
+    
     if (currentSelectedDateTasks.length === 0) return;
 
     const task = currentSelectedDateTasks[currentDateTaskIndex];
-
+    console.log(task);
     document.getElementById("dtcClient").textContent = task.client_name;
     document.getElementById("dtcPhone").textContent = task.phone;
     document.getElementById("dtcDirection").textContent = task.direction || "-";

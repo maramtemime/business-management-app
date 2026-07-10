@@ -285,6 +285,7 @@ def check_date_tasks():
             "id": t.id,
             "client_name": t.client_name,
             "phone": t.phone,
+            "direction": t.direction or "---",
             "description": t.description,
             "tools": t.tools or "---",
             "invoice": t.invoice,
