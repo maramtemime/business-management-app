@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date, timedelta
+from sqlalchemy import or_ 
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_session" 
@@ -266,7 +267,9 @@ def get_task(index):
 def delete_task(task_id):
     task = Task.query.get(task_id)
     if task:
-        db.session.delete(task)
+        
+        task.canceled = True
+        task.done = False  
         db.session.commit()
     return redirect(url_for('dashboard'))
 
@@ -277,7 +280,7 @@ def check_date_tasks():
         return jsonify({"count": 0, "tasks": []})
     
     # Query all tasks for the given date
-    tasks = Task.query.filter_by(date=date_val).all()
+    tasks = Task.query.filter_by(canceled=False, done=False).all()
     
     task_list = []
     for t in tasks:
@@ -298,18 +301,18 @@ def check_date_tasks():
         "tasks": task_list
     })
 
+from sqlalchemy import or_ # Just in case it's not imported at the top
+
 @app.route('/archive')
 def archive():
-    # 1. Fetch completed tasks
-    archived_tasks = Task.query.filter_by(done=True).order_by(Task.date.desc()).all()
-    total_completed = len(archived_tasks)
-
-    # 2. Count canceled tasks (assuming you have a canceled status/flag, e.g., canceled=True or status=='canceled')
-    # If you track canceled tasks with a boolean field `canceled`:
-    total_canceled = Task.query.filter_by(canceled=True).count()
+    # 1. Fetch BOTH completed OR canceled tasks, ordered by date
+    archived_tasks = Task.query.filter(
+        or_(Task.done == True, Task.canceled == True)
+    ).order_by(Task.date.desc()).all()
     
-    # Or if you use a status string:
-    # total_canceled = Task.query.filter_by(status='canceled').count()
+    # 2. Recalculate your dynamic summary card counters accurately
+    total_completed = Task.query.filter_by(done=True, canceled=False).count()
+    total_canceled = Task.query.filter_by(canceled=True).count()
 
     return render_template(
         'archive.html',
