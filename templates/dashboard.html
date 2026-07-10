@@ -445,16 +445,16 @@
 </div>
 
 <div class="modal-box" id="deleteConfirmModal" style="display: none; max-width: 360px; text-align: center; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1050; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-    <div class="text-danger mb-2" style="font-size: 40px;">
+    <div class="text-warning mb-2" style="font-size: 40px;">
         <i class="bi bi-exclamation-triangle"></i>
     </div>
-    <h5 class="mb-2">Confirmer la suppression</h5>
-    <p class="text-muted small mb-3">Voulez-vous vraiment supprimer cette tâche ? Cette action est irréversible.</p>
+    <h5 class="mb-2">Confirmer l'annulation</h5>
+    <p class="text-muted small mb-3">Voulez-vous vraiment annuler cette tâche ? Elle sera déplacée vers les archives.</p>
     
     <form id="deleteForm" method="POST" action="">
         <div class="d-flex gap-2 justify-content-center">
-            <button type="button" class="btn btn-light w-50" onclick="closeDeleteModal()">Annuler</button>
-            <button type="submit" class="btn btn-danger w-50">Supprimer</button>
+            <button type="button" class="btn btn-light w-50 fw-semibold" onclick="closeDeleteModal()">Annuler</button>
+            <button type="submit" class="btn btn-warning w-50 text-white fw-semibold shadow-sm">Confirmer</button>
         </div>
     </form>
 </div>
