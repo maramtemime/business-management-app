@@ -67,10 +67,14 @@
         </div>
     </div>
 
-    <!-- KPI Summary Cards -->
+    <!-- KPI Summary Cards (Interactive Filters) -->
     <div class="row g-3 mb-4">
+        <!-- Green Card (Completed Tasks) -->
         <div class="col-12 col-md-6">
-            <div class="card card-pastel-green p-3 rounded-3 shadow-sm border-0 h-100">
+            <div class="card card-pastel-green p-3 rounded-3 shadow-sm border-0 h-100" 
+                id="kpiCompletedCard"
+                onclick="toggleStatusFilter('completed')" 
+                style="cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <span class="small text-uppercase fw-semibold text-success" style="letter-spacing: 0.5px;">
@@ -85,8 +89,12 @@
             </div>
         </div>
 
+        <!-- Red Card (Canceled Tasks) -->
         <div class="col-12 col-md-6">
-            <div class="card card-pastel-red p-3 rounded-3 shadow-sm border-0 h-100">
+            <div class="card card-pastel-red p-3 rounded-3 shadow-sm border-0 h-100" 
+                id="kpiCanceledCard"
+                onclick="toggleStatusFilter('canceled')" 
+                style="cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <span class="small text-uppercase fw-semibold text-danger" style="letter-spacing: 0.5px;">
@@ -314,6 +322,115 @@ function openTask(taskId) {
     } else {
         console.log("Opening task detail for ID:", taskId);
     }
+}
+
+// State tracking for KPI card click filters
+let activeStatusFilter = 'all'; // Can be 'all', 'completed', or 'canceled'
+
+function toggleStatusFilter(status) {
+    const greenCard = document.getElementById('kpiCompletedCard');
+    const redCard = document.getElementById('kpiCanceledCard');
+
+    // Toggle off if clicking the currently selected card
+    if (activeStatusFilter === status) {
+        activeStatusFilter = 'all';
+    } else {
+        activeStatusFilter = status;
+    }
+
+    // Visual feedback: Highlight active card with a subtle border/shadow
+    if (greenCard) {
+        if (activeStatusFilter === 'completed') {
+            greenCard.classList.add('border', 'border-2', 'border-success', 'shadow');
+        } else {
+            greenCard.classList.remove('border', 'border-2', 'border-success', 'shadow');
+        }
+    }
+
+    if (redCard) {
+        if (activeStatusFilter === 'canceled') {
+            redCard.classList.add('border', 'border-2', 'border-danger', 'shadow');
+        } else {
+            redCard.classList.remove('border', 'border-2', 'border-danger', 'shadow');
+        }
+    }
+
+    // Re-run master table filter
+    filterArchiveTable();
+}
+
+// Master Filter Function
+function filterArchiveTable() {
+    const searchInput = document.getElementById('archiveSearch').value.toLowerCase().trim();
+    const filterMode = document.getElementById('dateFilterMode').value;
+    const tableRows = document.querySelectorAll('#archiveTable tbody tr');
+
+    const selectedExactDate = document.getElementById('filterExactDate').value; // YYYY-MM-DD
+    const selectedExactMonth = document.getElementById('filterExactMonth').value; // YYYY-MM
+    const selectedExactYear = document.getElementById('filterExactYear').value;   // YYYY
+
+    let visibleCompleted = 0;
+    let visibleCanceled = 0;
+    let totalVisibleRows = 0;
+
+    tableRows.forEach(row => {
+        if (row.id === 'noDataRow' || row.id === 'noResultsRow') return;
+
+        const textContent = row.textContent.toLowerCase();
+        const dateVal = row.getAttribute('data-date') || '';
+        const status = row.getAttribute('data-status'); // 'completed' or 'canceled'
+
+        // 1. Text Search Match
+        const matchesSearch = textContent.includes(searchInput);
+
+        // 2. Date Match
+        let matchesDate = true;
+        if (filterMode === 'date') {
+            matchesDate = selectedExactDate ? (dateVal === selectedExactDate) : true;
+        } else if (filterMode === 'month') {
+            matchesDate = selectedExactMonth ? dateVal.startsWith(selectedExactMonth) : true;
+        } else if (filterMode === 'year') {
+            matchesDate = selectedExactYear ? dateVal.startsWith(selectedExactYear) : true;
+        }
+
+        // 3. Status Card Match (Green/Red Card filter)
+        let matchesStatus = true;
+        if (activeStatusFilter === 'completed') {
+            matchesStatus = (status === 'completed');
+        } else if (activeStatusFilter === 'canceled') {
+            matchesStatus = (status === 'canceled');
+        }
+
+        // Apply all 3 filters
+        if (matchesSearch && matchesDate && matchesStatus) {
+            row.style.display = '';
+            totalVisibleRows++;
+            if (status === 'canceled') {
+                visibleCanceled++;
+            } else {
+                visibleCompleted++;
+            }
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    // Toggle Empty Search Result Row
+    const noResultsRow = document.getElementById('noResultsRow');
+    if (noResultsRow) {
+        if (totalVisibleRows === 0 && tableRows.length > 2) {
+            noResultsRow.classList.remove('d-none');
+        } else {
+            noResultsRow.classList.add('d-none');
+        }
+    }
+
+    // Update Counter Badges based on currently filtered subset
+    const completedElem = document.getElementById('completedCount');
+    const canceledElem = document.getElementById('canceledCount');
+
+    if (completedElem) completedElem.textContent = visibleCompleted;
+    if (canceledElem) canceledElem.textContent = visibleCanceled;
 }
 </script>
 {% endblock %}
