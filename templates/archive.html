@@ -3,6 +3,7 @@
 {% block content %}
 <div class="container-fluid py-4">
     
+    <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-bold text-dark mb-1">
@@ -12,6 +13,7 @@
         </div>
     </div>
 
+    <!-- Filter Bar -->
     <div class="card shadow-sm border-0 mb-4 p-3 rounded-3 bg-white">
         <div class="row g-3 align-items-center">
             <div class="col-12 col-md-8">
@@ -38,6 +40,7 @@
         </div>
     </div>
 
+    <!-- KPI Summary Cards -->
     <div class="row g-3 mb-4">
         <div class="col-12 col-md-6">
             <div class="card card-pastel-green p-3 rounded-3 shadow-sm border-0 h-100">
@@ -46,7 +49,7 @@
                         <span class="small text-uppercase fw-semibold text-success" style="letter-spacing: 0.5px;">
                             Total Tâches Terminées
                         </span>
-                        <h2 class="fw-bold mb-0 mt-1 text-success" id="completedCount">{{ total_completed }}</h2>
+                        <h2 class="fw-bold mb-0 mt-1 text-success" id="completedCount">{{ total_completed if total_completed is defined else 0 }}</h2>
                     </div>
                     <div class="kpi-icon">
                         <i class="bi bi-check-circle-fill text-success fs-1"></i>
@@ -56,13 +59,13 @@
         </div>
 
         <div class="col-12 col-md-6">
-            <div class="card card-pastel-red p-3 rounded-3 shadow-sm border-0 h-100" >
+            <div class="card card-pastel-red p-3 rounded-3 shadow-sm border-0 h-100">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <span class="small text-uppercase fw-semibold text-danger" style="letter-spacing: 0.5px;">
                             Tâches Annulées
                         </span>
-                        <h2 class="fw-bold mb-0 mt-1 text-danger" id="canceledCount">{{ total_canceled }}</h2>
+                        <h2 class="fw-bold mb-0 mt-1 text-danger" id="canceledCount">{{ total_canceled if total_canceled is defined else 0 }}</h2>
                     </div>
                     <div class="kpi-icon">
                         <i class="bi bi-x-circle-fill text-danger fs-1"></i>
@@ -72,6 +75,7 @@
         </div>
     </div>
 
+    <!-- Archives Data Table -->
     <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -89,7 +93,10 @@
                     </thead>
                     <tbody>
                         {% for task in tasks %}
-                        <tr ondblclick="openTask({{ task.id }})" style="cursor: pointer;" data-status="{% if task.canceled %}canceled{% else %}completed{% endif %}">
+                        <tr ondblclick="openTask('{{ task.id }}')" style="cursor: pointer;" 
+                            data-status="{% if task.canceled %}canceled{% else %}completed{% endif %}"
+                            data-date="{{ task.date }}">
+                            
                             <!-- Date cell with soft status dot -->
                             <td class="ps-3 fw-medium text-muted" style="vertical-align: middle;">
                                 {% if task.canceled %}
@@ -124,7 +131,7 @@
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
-                            <td class="fw-bold text-dark">{{ task.invoice }} DT</td>
+                            <td class="fw-bold text-dark">{{ task.invoice if task.invoice is defined else 0 }} DT</td>
                         </tr>
                         {% else %}
                         <tr id="noDataRow">
@@ -134,6 +141,14 @@
                             </td>
                         </tr>
                         {% endfor %}
+                        
+                        <!-- Dynamic Row when Search yields 0 results -->
+                        <tr id="noResultsRow" class="d-none">
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="bi bi-search fs-2 d-block mb-1 opacity-50"></i>
+                                Aucun résultat trouvé pour cette recherche.
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -144,7 +159,7 @@
 
 <script>
 function filterArchiveTable() {
-    const searchInput = document.getElementById('archiveSearch').value.toLowerCase();
+    const searchInput = document.getElementById('archiveSearch').value.toLowerCase().trim();
     const dateFilter = document.getElementById('dateFilter').value;
     const tableRows = document.querySelectorAll('#archiveTable tbody tr');
     
@@ -156,27 +171,29 @@ function filterArchiveTable() {
 
     let visibleCompleted = 0;
     let visibleCanceled = 0;
+    let totalVisibleRows = 0;
 
     tableRows.forEach(row => {
-        if (row.id === 'noDataRow') return;
+        if (row.id === 'noDataRow' || row.id === 'noResultsRow') return;
 
         const textContent = row.textContent.toLowerCase();
-        const dateCell = row.cells[0]?.textContent.trim();
+        const dateVal = row.getAttribute('data-date') || '';
         const status = row.getAttribute('data-status');
 
         const matchesSearch = textContent.includes(searchInput);
 
         let matchesDate = true;
         if (dateFilter === 'today') {
-            matchesDate = dateCell === todayStr;
+            matchesDate = dateVal === todayStr;
         } else if (dateFilter === 'this-month') {
-            matchesDate = dateCell.startsWith(monthStr);
+            matchesDate = dateVal.startsWith(monthStr);
         } else if (dateFilter === 'this-year') {
-            matchesDate = dateCell.startsWith(String(currentYear));
+            matchesDate = dateVal.startsWith(String(currentYear));
         }
 
         if (matchesSearch && matchesDate) {
             row.style.display = '';
+            totalVisibleRows++;
             if (status === 'canceled') {
                 visibleCanceled++;
             } else {
@@ -187,11 +204,31 @@ function filterArchiveTable() {
         }
     });
 
+    // Toggle No Results Message
+    const noResultsRow = document.getElementById('noResultsRow');
+    if (noResultsRow) {
+        if (totalVisibleRows === 0 && tableRows.length > 2) {
+            noResultsRow.classList.remove('d-none');
+        } else {
+            noResultsRow.classList.add('d-none');
+        }
+    }
+
+    // Update Counter Badges
     const completedElem = document.getElementById('completedCount');
     const canceledElem = document.getElementById('canceledCount');
 
     if (completedElem) completedElem.textContent = visibleCompleted;
     if (canceledElem) canceledElem.textContent = visibleCanceled;
+}
+
+// Double click row task reader (Connects to fetch task or modal)
+function openTask(taskId) {
+    if (typeof fetchTaskDetails === "function") {
+        fetchTaskDetails(taskId);
+    } else {
+        console.log("Opening task detail for ID:", taskId);
+    }
 }
 </script>
 {% endblock %}

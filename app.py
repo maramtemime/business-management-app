@@ -7,12 +7,11 @@ app = Flask(__name__)
 app.secret_key = "super_secret_key_for_session" 
 
 # --- DATABASE CONFIGURATION ---
-# This creates a local file named 'project.db' inside your project folder
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///project.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-# --- DATABASE MODEL (TABLE STRUCTURE) ---
+# --- DATABASE MODEL ---
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     client_name = db.Column(db.String(100), nullable=False)
@@ -23,7 +22,7 @@ class Task(db.Model):
     invoice = db.Column(db.Float, default=0.0)
     date = db.Column(db.String(10), nullable=False)
     done = db.Column(db.Boolean, default=False)
-    canceled = db.Column(db.Boolean, default=False) # <--- ADDED CANCELED FIELD HERE
+    canceled = db.Column(db.Boolean, default=False)
     note = db.Column(db.Text, nullable=True)
 
 def get_time_diff(task_date):
@@ -62,12 +61,10 @@ def dashboard():
     end_week_display = f"{end_week.day} {french_months[end_week.month]}"
     week_range_string = f"{start_week_display} au {end_week_display}"
 
-    # --- SQLALCHEMY QUERY ---
-    # Fetch ALL tasks from the database instead of a memory list
-    all_tasks = Task.query.all()
+    # FIX: Exclude canceled tasks from active dashboard view
+    active_tasks = Task.query.filter_by(canceled=False).all()
     
-    # Format dates dynamically for on-screen layout templates
-    for t in all_tasks:
+    for t in active_tasks:
         t.time_diff = get_time_diff(t.date)
         try:
             date_obj = datetime.strptime(t.date, "%Y-%m-%d")
@@ -75,12 +72,11 @@ def dashboard():
         except ValueError:
             t.date_display = t.date
 
-    # Filter task groups out of our processed database records
-    today_tasks = [t for t in all_tasks if t.date == today]
-    pending_tasks = [t for t in all_tasks if not t.done]
+    today_tasks = [t for t in active_tasks if t.date == today]
+    pending_tasks = [t for t in active_tasks if not t.done]
     
     done_week_tasks = []
-    for t in all_tasks:
+    for t in active_tasks:
         if t.done:
             try:
                 task_d = datetime.strptime(t.date, "%Y-%m-%d").date()
@@ -91,13 +87,9 @@ def dashboard():
 
     errors = request.args.getlist("errors")
 
-    # --- SQLALCHEMY QUERY ---
-    all_tasks = Task.query.all()
-    
-    # Calculate counts for summary badges
-    count_today = len([t for t in all_tasks if t.date == today])
-    count_pending = len([t for t in all_tasks if not t.done])
-    count_done = len([t for t in all_tasks if t.done])
+    count_today = len(today_tasks)
+    count_pending = len(pending_tasks)
+    count_done = len([t for t in active_tasks if t.done])
 
     return render_template(
         "dashboard.html",
@@ -112,14 +104,11 @@ def dashboard():
         errors=errors
     )
 
-from flask import jsonify, request, redirect, url_for
-from datetime import datetime, date
-
 @app.route("/add_task", methods=["POST"])
 def add_task():
     client_name = request.form.get("client_name", "").strip()
     phone = request.form.get("phone", "").strip()
-    direction = request.form.get("direction", "").strip()  # <--- 1. EXTRACT DIRECTION
+    direction = request.form.get("direction", "").strip()
     description = request.form.get("description", "").strip()
     tools = request.form.get("tools", "").strip()
     invoice_raw = request.form.get("invoice", "0").strip()
@@ -128,8 +117,6 @@ def add_task():
     
     errors = []
 
-    # If you want 'direction' to be mandatory, add 'not direction' below.
-    # Otherwise, leave it as is if it's optional!
     if not client_name or not description or not date_value:
         errors.append("Veuillez remplir tous les champs obligatoires.")
 
@@ -148,7 +135,6 @@ def add_task():
         errors.append("Date invalide, veuillez vérifier la date.")
         task_date_obj = date.today()
 
-    # --- RETURN JSON ERRORS IF VALIDATION FAILS ---
     if errors:
         return jsonify({
             "success": False, 
@@ -158,11 +144,10 @@ def add_task():
 
     is_past_date = task_date_obj < date.today()
 
-    # --- SQLALCHEMY INSERT ---
     new_task = Task(
         client_name=client_name,
         phone=phone,
-        direction=direction,  # <--- 2. PASS TO TASK MODEL
+        direction=direction,
         description=description,
         tools=tools,
         invoice=invoice,
@@ -181,7 +166,6 @@ def add_task():
 
 @app.route("/toggle_done/<int:index>")
 def toggle_done(index):
-    # Retrieve task using primary key ID
     task = Task.query.get(index)
     if task:
         task.done = not task.done
@@ -195,19 +179,16 @@ def toggle_done(index):
 @app.route("/update_task", methods=["POST"])
 def update_task():
     try:
-        # Check task_index first to match your exact HTML form attribute
         task_id = request.form.get("task_index") or request.form.get("task_id") or request.form.get("index")
         
         if not task_id:
             return redirect(url_for("dashboard"))
         
-        # Query task by ID
         task = Task.query.get(int(task_id))
         
         if task:
             date_value = request.form.get("date", "").strip()
             
-            # Safely parse task date
             try:
                 task_date_obj = datetime.strptime(date_value, "%Y-%m-%d").date()
             except ValueError:
@@ -216,7 +197,6 @@ def update_task():
 
             is_done_checked = (request.form.get("done") == "on")
 
-            # Mutate database record values
             task.client_name = request.form.get("client_name", "").strip()
             task.phone = request.form.get("phone", "").strip()
             task.direction = request.form.get("direction", "").strip()
@@ -231,7 +211,6 @@ def update_task():
             task.date = date_value
             task.note = request.form.get("note", "").strip()
             
-            # Auto-mark done for past dates unless manually unchecked
             if not is_done_checked and task_date_obj < date.today():
                 task.done = True
             else:
@@ -248,7 +227,6 @@ def update_task():
 def get_task(index):
     task = Task.query.get(index)
     if task:
-        # Convert model attributes to JSON dictionary representation payload
         return jsonify({
             "id": task.id,
             "client_name": task.client_name,
@@ -267,7 +245,6 @@ def get_task(index):
 def delete_task(task_id):
     task = Task.query.get(task_id)
     if task:
-        
         task.canceled = True
         task.done = False  
         db.session.commit()
@@ -279,8 +256,8 @@ def check_date_tasks():
     if not date_val:
         return jsonify({"count": 0, "tasks": []})
     
-    # Query all tasks for the given date
-    tasks = Task.query.filter_by(canceled=False, done=False).all()
+    # FIX: Added filter for date=date_val
+    tasks = Task.query.filter_by(date=date_val, canceled=False, done=False).all()
     
     task_list = []
     for t in tasks:
@@ -301,16 +278,12 @@ def check_date_tasks():
         "tasks": task_list
     })
 
-from sqlalchemy import or_ # Just in case it's not imported at the top
-
 @app.route('/archive')
 def archive():
-    # 1. Fetch BOTH completed OR canceled tasks, ordered by date
     archived_tasks = Task.query.filter(
         or_(Task.done == True, Task.canceled == True)
     ).order_by(Task.date.desc()).all()
     
-    # 2. Recalculate your dynamic summary card counters accurately
     total_completed = Task.query.filter_by(done=True, canceled=False).count()
     total_canceled = Task.query.filter_by(canceled=True).count()
 
@@ -321,8 +294,7 @@ def archive():
         total_canceled=total_canceled
     )
 
-# --- AUTOMATIC TABLE CREATION BOOTSTRAPPING ENGINE ---
 if __name__ == "__main__":
     with app.app_context():
-        db.create_all() # This creates project.db and the tables automatically if they don't exist!
+        db.create_all()
     app.run(debug=True)

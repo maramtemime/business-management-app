@@ -791,27 +791,28 @@ function closeDateTasksDetail() {
 }
 
 function renderDateTaskDetail() {
-    
     if (currentSelectedDateTasks.length === 0) return;
 
     const task = currentSelectedDateTasks[currentDateTaskIndex];
-    console.log(task);
-    document.getElementById("dtcClient").textContent = task.client_name;
-    document.getElementById("dtcPhone").textContent = task.phone;
+
+    document.getElementById("dtcClient").textContent = task.client_name || "---";
+    document.getElementById("dtcPhone").textContent = task.phone || "---";
     document.getElementById("dtcDirection").textContent = task.direction || "-";
-    document.getElementById("dtcDescription").textContent = task.description;
-    document.getElementById("dtcTools").textContent = task.tools;
-    document.getElementById("dtcInvoice").textContent = `${task.invoice} DT`;
-    document.getElementById("dtcNote").textContent = task.note;
+    document.getElementById("dtcDescription").textContent = task.description || "---";
+    document.getElementById("dtcTools").textContent = task.tools || "---";
+    document.getElementById("dtcInvoice").textContent = `${task.invoice ?? 0} DT`;
+    document.getElementById("dtcNote").textContent = (task.note && task.note.trim() !== "") ? task.note : "Aucune note.";
 
     // Status Badge
     const statusElem = document.getElementById("dtcStatus");
-    if (task.done) {
-        statusElem.textContent = "Terminée";
-        statusElem.className = "badge bg-success";
-    } else {
-        statusElem.textContent = "En cours";
-        statusElem.className = "badge bg-danger";
+    if (statusElem) {
+        if (task.done) {
+            statusElem.textContent = "Terminée";
+            statusElem.className = "badge bg-success";
+        } else {
+            statusElem.textContent = "En cours";
+            statusElem.className = "badge bg-danger";
+        }
     }
 
     // Counter update
@@ -819,8 +820,11 @@ function renderDateTaskDetail() {
     document.getElementById("dateTaskCounter").textContent = `${currentDateTaskIndex + 1} / ${total}`;
 
     // Enable / Disable Navigation Buttons
-    document.getElementById("prevTaskBtn").disabled = (currentDateTaskIndex === 0);
-    document.getElementById("nextTaskBtn").disabled = (currentDateTaskIndex === total - 1);
+    const prevBtn = document.getElementById("prevTaskBtn");
+    const nextBtn = document.getElementById("nextTaskBtn");
+    
+    if (prevBtn) prevBtn.disabled = (currentDateTaskIndex === 0);
+    if (nextBtn) nextBtn.disabled = (currentDateTaskIndex === total - 1);
 }
 
 function navigateDateTasks(direction) {
@@ -848,13 +852,10 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 // 2. Main toggle function for button clicks
+// Keep this implementation for sidebar toggling
 function toggleSidebar() {
     if (!document.body) return;
-
-    // Toggle the class on body
     document.body.classList.toggle("sidebar-hidden");
-
-    // Check if it's currently hidden and remember it
     const isHidden = document.body.classList.contains("sidebar-hidden");
     localStorage.setItem("sidebarHidden", isHidden ? "true" : "false");
 }
