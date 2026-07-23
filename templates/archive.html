@@ -16,7 +16,9 @@
     <!-- Filter Bar -->
     <div class="card shadow-sm border-0 mb-4 p-3 rounded-3 bg-white">
         <div class="row g-3 align-items-center">
-            <div class="col-12 col-md-8">
+            
+            <!-- Live Search Bar (Always takes 50% / col-md-6) -->
+            <div class="col-12 col-md-6">
                 <div class="input-group">
                     <span class="input-group-text bg-light border-end-0">
                         <i class="bi bi-search text-muted"></i>
@@ -24,19 +26,44 @@
                     <input type="text" id="archiveSearch" onkeyup="filterArchiveTable()" class="form-control border-start-0 bg-light" placeholder="Rechercher par client, téléphone, lieu, travail, outils...">
                 </div>
             </div>
-            <div class="col-12 col-md-4">
+
+            <!-- Dynamic Filter Mode Dropdown (Takes col-md-6 when 'all', collapses to col-md-3 when active input) -->
+            <div class="col-12 col-md-6" id="filterModeCol">
                 <div class="input-group">
                     <span class="input-group-text bg-light border-end-0">
                         <i class="bi bi-funnel text-muted"></i>
                     </span>
-                    <select id="dateFilter" onchange="filterArchiveTable()" class="form-select border-start-0 bg-light">
+                    <select id="dateFilterMode" onchange="handleFilterModeChange()" class="form-select border-start-0 bg-light">
                         <option value="all">Toutes les dates</option>
-                        <option value="today">Aujourd'hui</option>
-                        <option value="this-month">Ce mois-ci</option>
-                        <option value="this-year">Cette année</option>
+                        <option value="date">Date spécifique (JJ/MM/AAAA)</option>
+                        <option value="month">Mois entier</option>
+                        <option value="year">Année entière</option>
                     </select>
                 </div>
             </div>
+
+            <!-- Dynamic Picker Input Container (Hidden by default) -->
+            <div class="col-12 col-md-3 d-none" id="dynamicPickerCol">
+                
+                <!-- 1. Specific Date Picker -->
+                <div id="datePickerContainer" class="d-none">
+                    <input type="date" id="filterExactDate" onchange="filterArchiveTable()" class="form-control bg-light">
+                </div>
+
+                <!-- 2. Specific Month Picker -->
+                <div id="monthPickerContainer" class="d-none">
+                    <input type="month" id="filterExactMonth" onchange="filterArchiveTable()" class="form-control bg-light">
+                </div>
+
+                <!-- 3. Specific Year Select -->
+                <div id="yearPickerContainer" class="d-none">
+                    <select id="filterExactYear" onchange="filterArchiveTable()" class="form-select bg-light">
+                        <!-- Populated dynamically by JS -->
+                    </select>
+                </div>
+
+            </div>
+
         </div>
     </div>
 
@@ -97,7 +124,7 @@
                             data-status="{% if task.canceled %}canceled{% else %}completed{% endif %}"
                             data-date="{{ task.date }}">
                             
-                            <!-- Date cell with soft status dot -->
+                            <!-- Date cell with status dot -->
                             <td class="ps-3 fw-medium text-muted" style="vertical-align: middle;">
                                 {% if task.canceled %}
                                     <span class="d-inline-block rounded-circle bg-danger opacity-75" style="width: 8px; height: 8px; margin-right: 8px; vertical-align: middle;" title="Annulée"></span>
@@ -142,11 +169,11 @@
                         </tr>
                         {% endfor %}
                         
-                        <!-- Dynamic Row when Search yields 0 results -->
+                        <!-- Row when search filter returns 0 results -->
                         <tr id="noResultsRow" class="d-none">
                             <td colspan="7" class="text-center py-4 text-muted">
                                 <i class="bi bi-search fs-2 d-block mb-1 opacity-50"></i>
-                                Aucun résultat trouvé pour cette recherche.
+                                Aucun résultat trouvé pour les filtres sélectionnés.
                             </td>
                         </tr>
                     </tbody>
@@ -158,16 +185,74 @@
 </div>
 
 <script>
+document.addEventListener("DOMContentLoaded", function () {
+    populateYearDropdown();
+});
+
+// Populate Year Selector dynamically (Past 5 years to Current Year + 1)
+function populateYearDropdown() {
+    const yearSelect = document.getElementById('filterExactYear');
+    if (!yearSelect) return;
+
+    const currentYear = new Date().getFullYear();
+    yearSelect.innerHTML = '';
+
+    for (let year = currentYear; year >= currentYear - 5; year--) {
+        const opt = document.createElement('option');
+        opt.value = String(year);
+        opt.textContent = year;
+        yearSelect.appendChild(opt);
+    }
+}
+
+// Controls visibility of Date/Month/Year input fields
+// Controls column width & visibility of Date/Month/Year input fields
+function handleFilterModeChange() {
+    const mode = document.getElementById('dateFilterMode').value;
+    
+    const filterModeCol = document.getElementById('filterModeCol');
+    const dynamicPickerCol = document.getElementById('dynamicPickerCol');
+
+    const dateContainer = document.getElementById('datePickerContainer');
+    const monthContainer = document.getElementById('monthPickerContainer');
+    const yearContainer = document.getElementById('yearPickerContainer');
+
+    // Reset all pickers visibility
+    dateContainer.classList.add('d-none');
+    monthContainer.classList.add('d-none');
+    yearContainer.classList.add('d-none');
+
+    if (mode === 'all') {
+        // Expand mode dropdown to full remaining half (no gap)
+        filterModeCol.className = 'col-12 col-md-6';
+        dynamicPickerCol.classList.add('d-none');
+    } else {
+        // Shrink mode dropdown to col-md-3 & reveal picker input (col-md-3)
+        filterModeCol.className = 'col-12 col-md-3';
+        dynamicPickerCol.classList.remove('d-none');
+
+        if (mode === 'date') {
+            dateContainer.classList.remove('d-none');
+        } else if (mode === 'month') {
+            monthContainer.classList.remove('d-none');
+        } else if (mode === 'year') {
+            yearContainer.classList.remove('d-none');
+        }
+    }
+
+    // Re-evaluate table filter
+    filterArchiveTable();
+}
+
+// Master Filter Function
 function filterArchiveTable() {
     const searchInput = document.getElementById('archiveSearch').value.toLowerCase().trim();
-    const dateFilter = document.getElementById('dateFilter').value;
+    const filterMode = document.getElementById('dateFilterMode').value;
     const tableRows = document.querySelectorAll('#archiveTable tbody tr');
-    
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
-    const todayStr = `${currentYear}-${currentMonth}-${String(now.getDate()).padStart(2, '0')}`;
-    const monthStr = `${currentYear}-${currentMonth}`;
+
+    const selectedExactDate = document.getElementById('filterExactDate').value; // Format: YYYY-MM-DD
+    const selectedExactMonth = document.getElementById('filterExactMonth').value; // Format: YYYY-MM
+    const selectedExactYear = document.getElementById('filterExactYear').value;   // Format: YYYY
 
     let visibleCompleted = 0;
     let visibleCanceled = 0;
@@ -177,18 +262,19 @@ function filterArchiveTable() {
         if (row.id === 'noDataRow' || row.id === 'noResultsRow') return;
 
         const textContent = row.textContent.toLowerCase();
-        const dateVal = row.getAttribute('data-date') || '';
+        const dateVal = row.getAttribute('data-date') || ''; // Expected format: YYYY-MM-DD
         const status = row.getAttribute('data-status');
 
         const matchesSearch = textContent.includes(searchInput);
 
+        // Date Matching Logic
         let matchesDate = true;
-        if (dateFilter === 'today') {
-            matchesDate = dateVal === todayStr;
-        } else if (dateFilter === 'this-month') {
-            matchesDate = dateVal.startsWith(monthStr);
-        } else if (dateFilter === 'this-year') {
-            matchesDate = dateVal.startsWith(String(currentYear));
+        if (filterMode === 'date') {
+            matchesDate = selectedExactDate ? (dateVal === selectedExactDate) : true;
+        } else if (filterMode === 'month') {
+            matchesDate = selectedExactMonth ? dateVal.startsWith(selectedExactMonth) : true;
+        } else if (filterMode === 'year') {
+            matchesDate = selectedExactYear ? dateVal.startsWith(selectedExactYear) : true;
         }
 
         if (matchesSearch && matchesDate) {
@@ -204,7 +290,7 @@ function filterArchiveTable() {
         }
     });
 
-    // Toggle No Results Message
+    // Toggle Empty Search Result Row
     const noResultsRow = document.getElementById('noResultsRow');
     if (noResultsRow) {
         if (totalVisibleRows === 0 && tableRows.length > 2) {
@@ -222,7 +308,6 @@ function filterArchiveTable() {
     if (canceledElem) canceledElem.textContent = visibleCanceled;
 }
 
-// Double click row task reader (Connects to fetch task or modal)
 function openTask(taskId) {
     if (typeof fetchTaskDetails === "function") {
         fetchTaskDetails(taskId);
