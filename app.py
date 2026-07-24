@@ -61,7 +61,7 @@ def dashboard():
     end_week_display = f"{end_week.day} {french_months[end_week.month]}"
     week_range_string = f"{start_week_display} au {end_week_display}"
 
-    # FIX: Exclude canceled tasks from active dashboard view
+    # EXCLUDE canceled tasks from active dashboard view
     active_tasks = Task.query.filter_by(canceled=False).all()
     
     for t in active_tasks:
@@ -89,7 +89,9 @@ def dashboard():
 
     count_today = len(today_tasks)
     count_pending = len(pending_tasks)
-    count_done = len([t for t in active_tasks if t.done])
+    
+    # FIX: Count ONLY tasks completed for the current week instead of all historical done tasks
+    count_done = len(done_week_tasks)
 
     return render_template(
         "dashboard.html",
@@ -256,7 +258,6 @@ def check_date_tasks():
     if not date_val:
         return jsonify({"count": 0, "tasks": []})
     
-    # FIX: Added filter for date=date_val
     tasks = Task.query.filter_by(date=date_val, canceled=False, done=False).all()
     
     task_list = []

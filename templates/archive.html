@@ -128,9 +128,17 @@
                     </thead>
                     <tbody>
                         {% for task in tasks %}
-                        <tr ondblclick="openTask('{{ task.id }}')" style="cursor: pointer;" 
-                            data-status="{% if task.canceled %}canceled{% else %}completed{% endif %}"
-                            data-date="{{ task.date }}">
+                        <tr ondblclick="openTaskDetails(this)" 
+                            style="cursor: pointer;" 
+                            data-id="{{ task.id }}"
+                            data-date="{{ task.date }}"
+                            data-client="{{ task.client_name }}"
+                            data-phone="{{ task.phone if task.phone else '' }}"
+                            data-direction="{{ task.direction if task.direction else '' }}"
+                            data-description="{{ task.description if task.description else '' }}"
+                            data-tools="{{ task.tools if task.tools else '' }}"
+                            data-invoice="{{ task.invoice if task.invoice is defined else 0 }}"
+                            data-status="{% if task.canceled %}canceled{% else %}completed{% endif %}">
                             
                             <!-- Date cell with status dot -->
                             <td class="ps-3 fw-medium text-muted" style="vertical-align: middle;">
@@ -191,6 +199,59 @@
     </div>
 
 </div>
+
+<!-- Task Details Modal -->
+<div class="modal fade" id="taskDetailsModal" tabindex="-1" aria-labelledby="taskDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-3">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="taskDetailsModalLabel">
+                    <i class="bi bi-info-circle-fill text-primary me-2"></i>Détails de l'Archive
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="d-flex align-items-center justify-content-between mb-3 pb-3 border-bottom">
+                    <div>
+                        <h4 class="fw-bold mb-0 text-dark" id="modalClientName">-</h4>
+                        <span class="small text-muted" id="modalDate">-</span>
+                    </div>
+                    <span id="modalStatusBadge" class="badge rounded-pill px-3 py-2 fs-6">-</span>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="text-muted small fw-semibold text-uppercase">Téléphone</label>
+                        <p class="mb-0 fw-medium text-dark" id="modalPhone">-</p>
+                    </div>
+                    <div class="col-6">
+                        <label class="text-muted small fw-semibold text-uppercase">Montant Facture</label>
+                        <p class="mb-0 fw-bold text-dark" id="modalInvoice">-</p>
+                    </div>
+                    <div class="col-12">
+                        <label class="text-muted small fw-semibold text-uppercase">Direction / Lieu</label>
+                        <p class="mb-0 fw-medium text-dark" id="modalDirection">-</p>
+                    </div>
+                    <div class="col-12">
+                        <label class="text-muted small fw-semibold text-uppercase">Travail Réalisé</label>
+                        <p class="mb-0 text-dark bg-light p-3 rounded-2 border" id="modalDescription">-</p>
+                    </div>
+                    <div class="col-12">
+                        <label class="text-muted small fw-semibold text-uppercase">Outils / Équipement</label>
+                        <div id="modalTools">-</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 bg-light rounded-bottom-3">
+                <button type="button" class="btn btn-secondary px-4 rounded-2" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
@@ -432,5 +493,43 @@ function filterArchiveTable() {
     if (completedElem) completedElem.textContent = visibleCompleted;
     if (canceledElem) canceledElem.textContent = visibleCanceled;
 }
+
+function openTaskDetails(rowElem) {
+    const client = rowElem.getAttribute('data-client') || '-';
+    const date = rowElem.getAttribute('data-date') || '-';
+    const phone = rowElem.getAttribute('data-phone') || 'Non renseigné';
+    const direction = rowElem.getAttribute('data-direction') || 'Non renseignée';
+    const description = rowElem.getAttribute('data-description') || 'Aucune description';
+    const tools = rowElem.getAttribute('data-tools') || 'Aucun outil';
+    const invoice = rowElem.getAttribute('data-invoice') || '0';
+    const status = rowElem.getAttribute('data-status');
+
+    document.getElementById('modalClientName').textContent = client;
+    document.getElementById('modalDate').textContent = `Date: ${date}`;
+    document.getElementById('modalPhone').textContent = phone;
+    document.getElementById('modalDirection').textContent = direction;
+    document.getElementById('modalDescription').textContent = description;
+    document.getElementById('modalInvoice').textContent = `${invoice} DT`;
+
+    const modalTools = document.getElementById('modalTools');
+    if (tools && tools !== 'Aucun outil') {
+        modalTools.innerHTML = `<span class="badge bg-light text-dark border fw-normal fs-6">${tools}</span>`;
+    } else {
+        modalTools.innerHTML = `<span class="text-muted">Aucun outil</span>`;
+    }
+
+    const badgeElem = document.getElementById('modalStatusBadge');
+    if (status === 'canceled') {
+        badgeElem.className = 'badge bg-danger-subtle text-danger border border-danger px-3 py-2 fs-6';
+        badgeElem.textContent = 'Annulée';
+    } else {
+        badgeElem.className = 'badge bg-success-subtle text-success border border-success px-3 py-2 fs-6';
+        badgeElem.textContent = 'Terminée';
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('taskDetailsModal'));
+    modal.show();
+}
+
 </script>
 {% endblock %}
