@@ -17,7 +17,7 @@
     <div class="card shadow-sm border-0 mb-4 p-3 rounded-3 bg-white">
         <div class="row g-3 align-items-center">
             
-            <!-- Live Search Bar (Always takes 50% / col-md-6) -->
+            <!-- Live Search Bar -->
             <div class="col-12 col-md-6">
                 <div class="input-group">
                     <span class="input-group-text bg-light border-end-0">
@@ -27,7 +27,7 @@
                 </div>
             </div>
 
-            <!-- Dynamic Filter Mode Dropdown (Takes col-md-6 when 'all', collapses to col-md-3 when active input) -->
+            <!-- Dynamic Filter Mode Dropdown -->
             <div class="col-12 col-md-6" id="filterModeCol">
                 <div class="input-group">
                     <span class="input-group-text bg-light border-end-0">
@@ -42,7 +42,7 @@
                 </div>
             </div>
 
-            <!-- Dynamic Picker Input Container (Hidden by default) -->
+            <!-- Dynamic Picker Input Container -->
             <div class="col-12 col-md-3 d-none" id="dynamicPickerCol">
                 
                 <!-- 1. Specific Date Picker -->
@@ -242,23 +242,52 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer border-0 bg-light rounded-bottom-3">
+            <div class="modal-footer border-0 bg-light rounded-bottom-3 justify-content-end gap-2">
                 <button type="button" class="btn btn-secondary px-4 rounded-2" data-bs-dismiss="modal">Fermer</button>
+                <button type="button" class="btn btn-danger px-4 rounded-2" onclick="showDeleteConfirm()">Supprimer définitivement</button>
             </div>
         </div>
     </div>
 </div>
 
-
+<!-- Custom Styled Delete Confirmation Modal -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4 p-3 text-center">
+            <div class="modal-body p-3">
+                <div class="text-warning mb-3">
+                    <i class="bi bi-exclamation-triangle-fill fs-1"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2">Confirmer la suppression</h5>
+                <p class="text-muted small mb-4">
+                    Voulez-vous vraiment supprimer ce client ?<br>Cette action est irréversible.
+                </p>
+                
+                <div class="d-flex justify-content-center gap-2">
+                    <button type="button" class="btn btn-light px-4 rounded-3 text-dark fw-medium" data-bs-dismiss="modal">
+                        Annuler
+                    </button>
+                    <form id="deleteTaskForm" method="POST" action="" style="margin: 0;">
+                        <button type="submit" class="btn btn-danger px-4 rounded-3 fw-medium">
+                            Confirmer
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+let selectedTaskIdForDelete = null;
+let activeStatusFilter = 'all';
+
 document.addEventListener("DOMContentLoaded", function () {
     populateYearDropdown();
 });
 
-// Populate Year Selector dynamically (Past 5 years to Current Year + 1)
 function populateYearDropdown() {
     const yearSelect = document.getElementById('filterExactYear');
     if (!yearSelect) return;
@@ -274,8 +303,6 @@ function populateYearDropdown() {
     }
 }
 
-// Controls visibility of Date/Month/Year input fields
-// Controls column width & visibility of Date/Month/Year input fields
 function handleFilterModeChange() {
     const mode = document.getElementById('dateFilterMode').value;
     
@@ -286,17 +313,14 @@ function handleFilterModeChange() {
     const monthContainer = document.getElementById('monthPickerContainer');
     const yearContainer = document.getElementById('yearPickerContainer');
 
-    // Reset all pickers visibility
     dateContainer.classList.add('d-none');
     monthContainer.classList.add('d-none');
     yearContainer.classList.add('d-none');
 
     if (mode === 'all') {
-        // Expand mode dropdown to full remaining half (no gap)
         filterModeCol.className = 'col-12 col-md-6';
         dynamicPickerCol.classList.add('d-none');
     } else {
-        // Shrink mode dropdown to col-md-3 & reveal picker input (col-md-3)
         filterModeCol.className = 'col-12 col-md-3';
         dynamicPickerCol.classList.remove('d-none');
 
@@ -309,97 +333,19 @@ function handleFilterModeChange() {
         }
     }
 
-    // Re-evaluate table filter
     filterArchiveTable();
 }
-
-// Master Filter Function
-function filterArchiveTable() {
-    const searchInput = document.getElementById('archiveSearch').value.toLowerCase().trim();
-    const filterMode = document.getElementById('dateFilterMode').value;
-    const tableRows = document.querySelectorAll('#archiveTable tbody tr');
-
-    const selectedExactDate = document.getElementById('filterExactDate').value; // Format: YYYY-MM-DD
-    const selectedExactMonth = document.getElementById('filterExactMonth').value; // Format: YYYY-MM
-    const selectedExactYear = document.getElementById('filterExactYear').value;   // Format: YYYY
-
-    let visibleCompleted = 0;
-    let visibleCanceled = 0;
-    let totalVisibleRows = 0;
-
-    tableRows.forEach(row => {
-        if (row.id === 'noDataRow' || row.id === 'noResultsRow') return;
-
-        const textContent = row.textContent.toLowerCase();
-        const dateVal = row.getAttribute('data-date') || ''; // Expected format: YYYY-MM-DD
-        const status = row.getAttribute('data-status');
-
-        const matchesSearch = textContent.includes(searchInput);
-
-        // Date Matching Logic
-        let matchesDate = true;
-        if (filterMode === 'date') {
-            matchesDate = selectedExactDate ? (dateVal === selectedExactDate) : true;
-        } else if (filterMode === 'month') {
-            matchesDate = selectedExactMonth ? dateVal.startsWith(selectedExactMonth) : true;
-        } else if (filterMode === 'year') {
-            matchesDate = selectedExactYear ? dateVal.startsWith(selectedExactYear) : true;
-        }
-
-        if (matchesSearch && matchesDate) {
-            row.style.display = '';
-            totalVisibleRows++;
-            if (status === 'canceled') {
-                visibleCanceled++;
-            } else {
-                visibleCompleted++;
-            }
-        } else {
-            row.style.display = 'none';
-        }
-    });
-
-    // Toggle Empty Search Result Row
-    const noResultsRow = document.getElementById('noResultsRow');
-    if (noResultsRow) {
-        if (totalVisibleRows === 0 && tableRows.length > 2) {
-            noResultsRow.classList.remove('d-none');
-        } else {
-            noResultsRow.classList.add('d-none');
-        }
-    }
-
-    // Update Counter Badges
-    const completedElem = document.getElementById('completedCount');
-    const canceledElem = document.getElementById('canceledCount');
-
-    if (completedElem) completedElem.textContent = visibleCompleted;
-    if (canceledElem) canceledElem.textContent = visibleCanceled;
-}
-
-function openTask(taskId) {
-    if (typeof fetchTaskDetails === "function") {
-        fetchTaskDetails(taskId);
-    } else {
-        console.log("Opening task detail for ID:", taskId);
-    }
-}
-
-// State tracking for KPI card click filters
-let activeStatusFilter = 'all'; // Can be 'all', 'completed', or 'canceled'
 
 function toggleStatusFilter(status) {
     const greenCard = document.getElementById('kpiCompletedCard');
     const redCard = document.getElementById('kpiCanceledCard');
 
-    // Toggle off if clicking the currently selected card
     if (activeStatusFilter === status) {
         activeStatusFilter = 'all';
     } else {
         activeStatusFilter = status;
     }
 
-    // Visual feedback: Highlight active card with a subtle border/shadow
     if (greenCard) {
         if (activeStatusFilter === 'completed') {
             greenCard.classList.add('border', 'border-2', 'border-success', 'shadow');
@@ -416,19 +362,17 @@ function toggleStatusFilter(status) {
         }
     }
 
-    // Re-run master table filter
     filterArchiveTable();
 }
 
-// Master Filter Function
 function filterArchiveTable() {
     const searchInput = document.getElementById('archiveSearch').value.toLowerCase().trim();
     const filterMode = document.getElementById('dateFilterMode').value;
     const tableRows = document.querySelectorAll('#archiveTable tbody tr');
 
-    const selectedExactDate = document.getElementById('filterExactDate').value; // YYYY-MM-DD
-    const selectedExactMonth = document.getElementById('filterExactMonth').value; // YYYY-MM
-    const selectedExactYear = document.getElementById('filterExactYear').value;   // YYYY
+    const selectedExactDate = document.getElementById('filterExactDate').value;
+    const selectedExactMonth = document.getElementById('filterExactMonth').value;
+    const selectedExactYear = document.getElementById('filterExactYear').value;
 
     let visibleCompleted = 0;
     let visibleCanceled = 0;
@@ -439,12 +383,10 @@ function filterArchiveTable() {
 
         const textContent = row.textContent.toLowerCase();
         const dateVal = row.getAttribute('data-date') || '';
-        const status = row.getAttribute('data-status'); // 'completed' or 'canceled'
+        const status = row.getAttribute('data-status');
 
-        // 1. Text Search Match
         const matchesSearch = textContent.includes(searchInput);
 
-        // 2. Date Match
         let matchesDate = true;
         if (filterMode === 'date') {
             matchesDate = selectedExactDate ? (dateVal === selectedExactDate) : true;
@@ -454,7 +396,6 @@ function filterArchiveTable() {
             matchesDate = selectedExactYear ? dateVal.startsWith(selectedExactYear) : true;
         }
 
-        // 3. Status Card Match (Green/Red Card filter)
         let matchesStatus = true;
         if (activeStatusFilter === 'completed') {
             matchesStatus = (status === 'completed');
@@ -462,7 +403,6 @@ function filterArchiveTable() {
             matchesStatus = (status === 'canceled');
         }
 
-        // Apply all 3 filters
         if (matchesSearch && matchesDate && matchesStatus) {
             row.style.display = '';
             totalVisibleRows++;
@@ -476,7 +416,6 @@ function filterArchiveTable() {
         }
     });
 
-    // Toggle Empty Search Result Row
     const noResultsRow = document.getElementById('noResultsRow');
     if (noResultsRow) {
         if (totalVisibleRows === 0 && tableRows.length > 2) {
@@ -486,7 +425,6 @@ function filterArchiveTable() {
         }
     }
 
-    // Update Counter Badges based on currently filtered subset
     const completedElem = document.getElementById('completedCount');
     const canceledElem = document.getElementById('canceledCount');
 
@@ -495,6 +433,7 @@ function filterArchiveTable() {
 }
 
 function openTaskDetails(rowElem) {
+    selectedTaskIdForDelete = rowElem.getAttribute('data-id');
     const client = rowElem.getAttribute('data-client') || '-';
     const date = rowElem.getAttribute('data-date') || '-';
     const phone = rowElem.getAttribute('data-phone') || 'Non renseigné';
@@ -531,5 +470,22 @@ function openTaskDetails(rowElem) {
     modal.show();
 }
 
+function showDeleteConfirm() {
+    if (!selectedTaskIdForDelete) return;
+
+    const deleteForm = document.getElementById('deleteTaskForm');
+    if (deleteForm) {
+        deleteForm.action = '/delete_client/' + selectedTaskIdForDelete;
+    }
+
+    const taskDetailsModalElem = document.getElementById('taskDetailsModal');
+    const taskDetailsModal = bootstrap.Modal.getInstance(taskDetailsModalElem);
+    if (taskDetailsModal) {
+        taskDetailsModal.hide();
+    }
+
+    const confirmModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+    confirmModal.show();
+}
 </script>
 {% endblock %}

@@ -295,6 +295,13 @@ def archive():
         total_canceled=total_canceled
     )
 
+@app.route('/delete_client/<int:client_id>', methods=['POST'])
+def delete_client(client_id):
+    task = Task.query.get_or_404(client_id)
+    db.session.delete(task)
+    db.session.commit()
+    return redirect(url_for('archive'))
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
