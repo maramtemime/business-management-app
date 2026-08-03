@@ -1,67 +1,17 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <script>
-        if (localStorage.getItem("sidebarHidden") === "true") {
-            document.documentElement.classList.add("preload-sidebar-hidden");
-        }
-    </script>
-    <meta charset="UTF-8">
-    <title>Dashboard</title>
+{% extends "base.html" %}
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-    
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.js"></script>
+{% block title %}Dashboard - Gestion des tâches{% endblock %}
 
-</head>
-
-<body class="dashboard-body">
-    <script>
-        if (localStorage.getItem("sidebarHidden") === "true") {
-            document.body.classList.add("sidebar-hidden");
-        }
-    </script>
-<button class="floating-menu-btn" onclick="toggleSidebar()" title="Afficher le menu">
-    <i class="bi bi-list"></i>
-</button>
-
-<div class="sidebar">
-    <div class="d-flex align-items-center justify-content-between mb-4">
-        <h2>Tableau de bord</h2>
-        <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Masquer le menu">
-            <i class="bi bi-layout-sidebar-inset"></i>
-        </button>
-    </div>
-    <div class="nav-item">
-        <a href="{{ url_for('dashboard') }}" class="text-decoration-none text-white d-flex align-items-center w-100">
-            <i class="bi bi-list-task me-2"></i> Tâches
-        </a>
-    </div>
-    <div class="nav-item"><i class="bi bi-people"></i> Travailleurs</div>
-    <div class="nav-item">
-        <a href="{{ url_for('archive') }}" class="text-decoration-none text-white d-flex align-items-center w-100">
-            <i class="bi bi-archive me-2"></i> Archives
-        </a>
-    </div>
-    <div class="nav-item"><i class="bi bi-graph-up"></i> Statistiques</div>
+{% block content %}
+{% if errors %}
+<div class="alert alert-danger">
+    <ul class="mb-0">
+        {% for e in errors %}
+        <li>{{ e }}</li>
+        {% endfor %}
+    </ul>
 </div>
-
-<div class="main">
-
-    {% if errors %}
-    <div class="alert alert-danger">
-        <ul class="mb-0">
-            {% for e in errors %}
-            <li>{{ e }}</li>
-            {% endfor %}
-        </ul>
-    </div>
-    {% endif %}
+{% endif %}
 
     <h3>Gestion des tâches</h3>
     <p class="text-muted">{{ today }}</p>
@@ -169,7 +119,7 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="6" class="text-muted text-center">Aucune tâche pour aujourd'hui.</td></tr>
+                <tr><td colspan="7" class="text-muted text-center">Aucune tâche pour aujourd'hui.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -211,7 +161,7 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="7" class="text-muted text-center">Aucune tâche en cours.</td></tr>
+                <tr><td colspan="8" class="text-muted text-center">Aucune tâche en cours.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -224,7 +174,7 @@
                 <tr>
                     <th>Client</th>
                     <th>Téléphone</th>
-                    <th>Lieu </th>
+                    <th>Lieu</th>
                     <th>Travail</th>
                     <th>Outils</th>
                     <th>Facture</th>
@@ -243,7 +193,7 @@
                     <td>{{ t.date_display }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="6" class="text-muted text-center">Aucune tâche terminée cette semaine.</td></tr>
+                <tr><td colspan="7" class="text-muted text-center">Aucune tâche terminée cette semaine.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -266,7 +216,7 @@
                     Le numéro de téléphone doit contenir uniquement des chiffres.
                 </div>
             </div>
-            <input type="text" class="form-control" id="direction" name="direction" placeholder="Lieu / Direction">
+            <input type="text" class="form-control mb-2" id="direction" name="direction" placeholder="Lieu / Direction">
             <input class="form-control mb-2" name="description" placeholder="Travail" required>
             <input class="form-control mb-2" name="tools" placeholder="Outils">
             <input class="form-control mb-2" name="invoice" type="number" step="0.01" placeholder="Facture (DT)" required>
@@ -278,8 +228,6 @@
                     id="add_date" 
                     type="text" 
                     placeholder="Sélectionner une date" 
-                    onfocus="(this.type='date')" 
-                    onblur="if(!this.value) this.type='text'" 
                     required
                 >
                 
@@ -353,7 +301,6 @@
 </div>
 
 <div class="modal-box" id="taskModal" style="max-width: 420px; display: none;">
-    
     <div id="taskDetailView">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="mb-0 fw-bold" id="viewClientName">Nom du Client</h5>
@@ -416,7 +363,7 @@
             
             <input class="form-control mb-2" name="client_name" id="client_name" placeholder="Client" required>
             <input class="form-control mb-2" name="phone" id="phone" placeholder="Téléphone" required>
-            <input type="text" class="form-control" id="edit_direction" name="direction" placeholder="Lieu / Direction">
+            <input type="text" class="form-control mb-2" id="edit_direction" name="direction" placeholder="Lieu / Direction">
             <input class="form-control mb-2" name="description" id="description" placeholder="Travail" required>
             <input class="form-control mb-2" name="tools" id="tools" placeholder="Outils">
             <input class="form-control mb-2" name="invoice" id="invoice" type="number" step="0.01" required>
@@ -441,7 +388,6 @@
             </div>
         </form>
     </div>
-
 </div>
 
 <div class="modal-box" id="deleteConfirmModal" style="display: none; max-width: 360px; text-align: center; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1050; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
@@ -462,6 +408,8 @@
 <script>
 let addDatePickerInstance;
 let detailsDatePickerInstance;
+let currentSelectedDateTasks = [];
+let currentDateTaskIndex = 0;
 
 document.addEventListener("DOMContentLoaded", function() {
     const flatpickrOptions = {
@@ -469,201 +417,28 @@ document.addEventListener("DOMContentLoaded", function() {
         dateFormat: "Y-m-d",
         altInput: true,
         altFormat: "d/m/Y",
-        allowInput: true
+        allowInput: true,
+        onChange: function(selectedDates, dateStr) {
+            checkTasksForDate(dateStr);
+        }
     };
 
     addDatePickerInstance = flatpickr("#add_date", flatpickrOptions);
     detailsDatePickerInstance = flatpickr("#date", flatpickrOptions);
-});
 
-// JavaScript logic to manage sidebar toggle visibility
-document.addEventListener("DOMContentLoaded", function () {
-    const sidebar = document.getElementById("sidebar"); // Adjust to your sidebar ID
-    const savedState = localStorage.getItem("sidebarState");
-
-    // Restore saved state on page load
-    if (savedState === "hidden" && sidebar) {
-        sidebar.classList.add("hidden"); // Adjust class name if you use 'd-none', 'collapsed', etc.
-    }
-});
-
-function toggleSidebar() {
-    const sidebar = document.getElementById("sidebar"); // Adjust to your sidebar ID
-    if (!sidebar) return;
-
-    sidebar.classList.toggle("hidden"); // Adjust class name to match your CSS
-
-    // Save current state in localStorage
-    if (sidebar.classList.contains("hidden")) {
-        localStorage.setItem("sidebarState", "hidden");
-    } else {
-        localStorage.setItem("sidebarState", "visible");
-    }
-}
-
-function openModal() {
-    if (addDatePickerInstance) {
-        addDatePickerInstance.clear();
-    }
-    document.getElementById("modalBox").style.display = "block";
-    document.getElementById("globalOverlay").style.display = "block";
-}
-
-// OPEN TASK (DEFAULTS TO READ-ONLY DETAILS CARD)
-function openTask(taskId) {
-    if (!taskId || taskId === 'undefined') return;
-
-    fetch(`/get_task/${taskId}`)
-        .then(response => response.json())
-        .then(data => {
-            // Helper function to safely update innerText
-            const setTxt = (id, val) => {
-                const el = document.getElementById(id);
-                if (el) el.innerText = val;
-            };
-
-            // Helper function to safely update input value
-            const setVal = (id, val) => {
-                const el = document.getElementById(id);
-                if (el) el.value = val;
-            };
-
-            // 1. Populate Read-Only Card View
-            setTxt("viewClientName", data.client_name || "");
-            setTxt("viewPhone", data.phone || "---");
-            setTxt("viewDirection", data.direction || "---");
-            setTxt("viewDescription", data.description || "---");
-            setTxt("viewTools", data.tools || "---");
-            setTxt("viewInvoice", `${data.invoice} DT`);
-            setTxt("viewDate", data.date || "---");
-            setTxt("viewNote", data.note || "Aucune note.");
-
-            const statusBadge = document.getElementById("viewStatus");
-            if (statusBadge) {
-                if (data.done) {
-                    statusBadge.className = "badge bg-success";
-                    statusBadge.innerText = "Terminée";
-                } else {
-                    statusBadge.className = "badge bg-warning text-dark";
-                    statusBadge.innerText = "En cours";
-                }
-            }
-
-            // 2. Populate Edit Inputs
-            setVal("taskIndex", data.id || "");
-            setVal("client_name", data.client_name || "");
-            setVal("phone", data.phone || "");
-            setVal("edit_direction", data.direction || "");
-            setVal("description", data.description || "");
-            setVal("tools", data.tools || "");
-            setVal("invoice", data.invoice || "");
-            
-            // Populate Date & Sync Flatpickr Instance safely
-            const dateInput = document.getElementById("date");
-            if (dateInput) {
-                dateInput.value = data.date || "";
-                if (dateInput._flatpickr) {
-                    dateInput._flatpickr.setDate(data.date, true);
-                }
-            }
-
-            const taskDoneCheckbox = document.getElementById("taskDone");
-            if (taskDoneCheckbox) taskDoneCheckbox.checked = data.done;
-
-            setVal("note", data.note || "");
-
-            // 3. Reset view to Detail Card mode by default
-            if (typeof disableEditMode === "function") {
-                disableEditMode();
-            }
-
-            // 4. Display Modal
-            const globalOverlay = document.getElementById("globalOverlay");
-            const taskModal = document.getElementById("taskModal");
-            if (globalOverlay) globalOverlay.style.display = "block";
-            if (taskModal) taskModal.style.display = "block";
-        })
-        .catch(error => console.error("Error fetching task:", error));
-}
-
-// TOGGLE TO EDIT FORM WHEN PENCIL ICON IS CLICKED
-function enableEditMode() {
-    document.getElementById("taskDetailView").style.display = "none";
-    document.getElementById("taskEditView").style.display = "block";
-}
-
-// TOGGLE BACK TO READ-ONLY CARD
-function disableEditMode() {
-    document.getElementById("taskDetailView").style.display = "block";
-    document.getElementById("taskEditView").style.display = "none";
-}
-
-function closeAllModals() {
-    // Hide all modal cards
-    if (document.getElementById("modalBox")) document.getElementById("modalBox").style.display = "none";
-    if (document.getElementById("taskModal")) document.getElementById("taskModal").style.display = "none";
-    if (document.getElementById("deleteConfirmModal")) document.getElementById("deleteConfirmModal").style.display = "none";
-
-    // HIDE THE GRAY BACKDROP OVERLAY
-    if (document.getElementById("globalOverlay")) {
-        document.getElementById("globalOverlay").style.display = "none";
+    // Fallback for typed input
+    const addDateInput = document.getElementById("add_date");
+    if (addDateInput) {
+        addDateInput.addEventListener("blur", function() {
+            checkTasksForDate(this.value);
+        });
     }
 
-    // Reset view to detail view for next time
-    if (typeof disableEditMode === "function") {
-        disableEditMode();
-    }
-}
-
-// REAL-TIME SEARCH FILTER
-function filterTasks() {
-    const query = document.getElementById("taskSearchInput").value.toLowerCase();
-    const rows = document.querySelectorAll(".card-box table tbody tr");
-
-    rows.forEach(row => {
-        if (row.children.length === 1 && row.children[0].classList.contains("text-muted")) {
-            return;
-        }
-
-        const rowText = row.innerText.toLowerCase();
-
-        if (rowText.includes(query)) {
-            row.style.display = "";
-        } else {
-            row.style.display = "none";
-        }
-    });
-}
-
-// OPEN DELETE CONFIRMATION MODAL
-function confirmDelete() {
-    const taskId = document.getElementById("taskIndex").value;
-    
-    if (!taskId) {
-        console.error("No task ID found to delete!");
-        return;
-    }
-
-    document.getElementById("deleteForm").action = `/delete_task/${taskId}`;
-    
-    // Hide main modal and show delete confirmation modal
-    document.getElementById("taskModal").style.display = "none";
-    document.getElementById("deleteConfirmModal").style.display = "block";
-    document.getElementById("globalOverlay").style.display = "block";
-}
-
-// CLOSE DELETE MODAL & RETURN TO EDIT MODAL
-function closeDeleteModal() {
-    document.getElementById("deleteConfirmModal").style.display = "none";
-    document.getElementById("taskModal").style.display = "block";
-}
-
-document.addEventListener("DOMContentLoaded", function () {
+    // Phone Input Validation
     const phoneInput = document.getElementById("add_phone");
     const phoneError = document.getElementById("phoneError");
     const addForm = phoneInput ? phoneInput.closest("form") : null;
 
-    // Real-time check when clicking next input (blur)
     if (phoneInput) {
         phoneInput.addEventListener("blur", function () {
             const val = phoneInput.value.trim();
@@ -684,11 +459,9 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // Modal Form Submission handling without page reload on error
     if (addForm) {
         addForm.addEventListener("submit", function (e) {
             e.preventDefault();
-            
             fetch("/add_task", {
                 method: "POST",
                 body: new FormData(addForm)
@@ -696,9 +469,8 @@ document.addEventListener("DOMContentLoaded", function () {
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    window.location.reload(); // Success: refresh dashboard
+                    window.location.reload();
                 } else if (data.phone_error) {
-                    // Show error inside card
                     phoneError.classList.remove("d-none");
                     phoneInput.classList.add("is-invalid");
                 }
@@ -707,70 +479,162 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 });
-document.addEventListener("DOMContentLoaded", function () {
-    const dateInput = document.getElementById("add_date");
+
+function checkTasksForDate(selectedDate) {
     const dateNotice = document.getElementById("dateTaskNotice");
     const dateNoticeText = document.getElementById("dateNoticeText");
 
-    if (dateInput) {
-        dateInput.addEventListener("change", function () {
-            const selectedDate = dateInput.value;
-            if (!selectedDate) {
+    closeDateTasksDetail();
+
+    if (!selectedDate) {
+        if (dateNotice) dateNotice.classList.add("d-none");
+        currentSelectedDateTasks = [];
+        return;
+    }
+
+    fetch(`/check_date_tasks?date=${encodeURIComponent(selectedDate)}`)
+        .then(res => res.json())
+        .then(data => {
+            currentSelectedDateTasks = data.tasks || [];
+            if (data.count > 0 && dateNotice && dateNoticeText) {
+                dateNoticeText.textContent = `Vous avez ${data.count} tâche(s) prévue(s) ce jour (Cliquer pour voir)`;
+                dateNotice.classList.remove("d-none");
+            } else if (dateNotice) {
                 dateNotice.classList.add("d-none");
-                return;
+            }
+        })
+        .catch(err => console.error("Error fetching tasks for date:", err));
+}
+
+function openModal() {
+    if (addDatePickerInstance) {
+        addDatePickerInstance.clear();
+    }
+    const notice = document.getElementById("dateTaskNotice");
+    if (notice) notice.classList.add("d-none");
+    closeDateTasksDetail();
+
+    document.getElementById("modalBox").style.display = "block";
+    document.getElementById("globalOverlay").style.display = "block";
+}
+
+function openTask(taskId) {
+    if (!taskId || taskId === 'undefined') return;
+
+    fetch(`/get_task/${taskId}`)
+        .then(response => response.json())
+        .then(data => {
+            const setTxt = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = val;
+            };
+
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.value = val;
+            };
+
+            setTxt("viewClientName", data.client_name || "");
+            setTxt("viewPhone", data.phone || "---");
+            setTxt("viewDirection", data.direction || "---");
+            setTxt("viewDescription", data.description || "---");
+            setTxt("viewTools", data.tools || "---");
+            setTxt("viewInvoice", `${data.invoice} DT`);
+            setTxt("viewDate", data.date || "---");
+            setTxt("viewNote", data.note || "Aucune note.");
+
+            const statusBadge = document.getElementById("viewStatus");
+            if (statusBadge) {
+                if (data.done) {
+                    statusBadge.className = "badge bg-success";
+                    statusBadge.innerText = "Terminée";
+                } else {
+                    statusBadge.className = "badge bg-warning text-dark";
+                    statusBadge.innerText = "En cours";
+                }
             }
 
-            // Fetch existing task count for the selected date
-            fetch(`/check_date_tasks?date=${encodeURIComponent(selectedDate)}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.count > 0) {
-                        dateNoticeText.textContent = `Vous avez déjà ${data.count} tâche(s) prévue(s) pour cette date.`;
-                        dateNotice.classList.remove("d-none");
-                    } else {
-                        dateNoticeText.textContent = `Aucune tâche prévue pour cette date.`;
-                        dateNotice.classList.remove("d-none");
-                    }
-                })
-                .catch(err => console.error("Error checking date tasks:", err));
-        });
-    }
-});
-let currentSelectedDateTasks = [];
-let currentDateTaskIndex = 0;
-
-document.addEventListener("DOMContentLoaded", function () {
-    const dateInput = document.getElementById("add_date");
-    const dateNotice = document.getElementById("dateTaskNotice");
-    const dateNoticeText = document.getElementById("dateNoticeText");
-
-    if (dateInput) {
-        dateInput.addEventListener("change", function () {
-            const selectedDate = dateInput.value;
-            closeDateTasksDetail();
-
-            if (!selectedDate) {
-                dateNotice.classList.add("d-none");
-                currentSelectedDateTasks = [];
-                return;
+            setVal("taskIndex", data.id || "");
+            setVal("client_name", data.client_name || "");
+            setVal("phone", data.phone || "");
+            setVal("edit_direction", data.direction || "");
+            setVal("description", data.description || "");
+            setVal("tools", data.tools || "");
+            setVal("invoice", data.invoice || "");
+            
+            const dateInput = document.getElementById("date");
+            if (dateInput) {
+                dateInput.value = data.date || "";
+                if (dateInput._flatpickr) {
+                    dateInput._flatpickr.setDate(data.date, true);
+                }
             }
 
-            // Fetch tasks array for selected date
-            fetch(`/check_date_tasks?date=${encodeURIComponent(selectedDate)}`)
-                .then(res => res.json())
-                .then(data => {
-                    currentSelectedDateTasks = data.tasks || [];
-                    if (data.count > 0) {
-                        dateNoticeText.textContent = `Vous avez ${data.count} tâche(s) prévue(s) ce jour (Cliquer pour voir)`;
-                        dateNotice.classList.remove("d-none");
-                    } else {
-                        dateNotice.classList.add("d-none");
-                    }
-                })
-                .catch(err => console.error("Error fetching tasks for date:", err));
-        });
+            const taskDoneCheckbox = document.getElementById("taskDone");
+            if (taskDoneCheckbox) taskDoneCheckbox.checked = data.done;
+
+            setVal("note", data.note || "");
+
+            disableEditMode();
+
+            const globalOverlay = document.getElementById("globalOverlay");
+            const taskModal = document.getElementById("taskModal");
+            if (globalOverlay) globalOverlay.style.display = "block";
+            if (taskModal) taskModal.style.display = "block";
+        })
+        .catch(error => console.error("Error fetching task:", error));
+}
+
+function enableEditMode() {
+    document.getElementById("taskDetailView").style.display = "none";
+    document.getElementById("taskEditView").style.display = "block";
+}
+
+function disableEditMode() {
+    document.getElementById("taskDetailView").style.display = "block";
+    document.getElementById("taskEditView").style.display = "none";
+}
+
+function closeAllModals() {
+    if (document.getElementById("modalBox")) document.getElementById("modalBox").style.display = "none";
+    if (document.getElementById("taskModal")) document.getElementById("taskModal").style.display = "none";
+    if (document.getElementById("deleteConfirmModal")) document.getElementById("deleteConfirmModal").style.display = "none";
+
+    if (document.getElementById("globalOverlay")) {
+        document.getElementById("globalOverlay").style.display = "none";
     }
-});
+
+    disableEditMode();
+}
+
+function filterTasks() {
+    const query = document.getElementById("taskSearchInput").value.toLowerCase();
+    const rows = document.querySelectorAll(".card-box table tbody tr");
+
+    rows.forEach(row => {
+        if (row.children.length === 1 && row.children[0].classList.contains("text-muted")) {
+            return;
+        }
+
+        const rowText = row.innerText.toLowerCase();
+        row.style.display = rowText.includes(query) ? "" : "none";
+    });
+}
+
+function confirmDelete() {
+    const taskId = document.getElementById("taskIndex").value;
+    if (!taskId) return;
+
+    document.getElementById("deleteForm").action = `/delete_task/${taskId}`;
+    document.getElementById("taskModal").style.display = "none";
+    document.getElementById("deleteConfirmModal").style.display = "block";
+    document.getElementById("globalOverlay").style.display = "block";
+}
+
+function closeDeleteModal() {
+    document.getElementById("deleteConfirmModal").style.display = "none";
+    document.getElementById("taskModal").style.display = "block";
+}
 
 function toggleDateTasksDetail() {
     if (currentSelectedDateTasks.length === 0) return;
@@ -803,7 +667,6 @@ function renderDateTaskDetail() {
     document.getElementById("dtcInvoice").textContent = `${task.invoice ?? 0} DT`;
     document.getElementById("dtcNote").textContent = (task.note && task.note.trim() !== "") ? task.note : "Aucune note.";
 
-    // Status Badge
     const statusElem = document.getElementById("dtcStatus");
     if (statusElem) {
         if (task.done) {
@@ -815,11 +678,9 @@ function renderDateTaskDetail() {
         }
     }
 
-    // Counter update
     const total = currentSelectedDateTasks.length;
     document.getElementById("dateTaskCounter").textContent = `${currentDateTaskIndex + 1} / ${total}`;
 
-    // Enable / Disable Navigation Buttons
     const prevBtn = document.getElementById("prevTaskBtn");
     const nextBtn = document.getElementById("nextTaskBtn");
     
@@ -834,6 +695,7 @@ function navigateDateTasks(direction) {
         renderDateTaskDetail();
     }
 }
+
 function scrollToSection(sectionId) {
     const section = document.getElementById(sectionId);
     if (section) {
@@ -843,23 +705,6 @@ function scrollToSection(sectionId) {
         });
     }
 }
-// 1. Restore saved state as soon as DOM is ready
-document.addEventListener("DOMContentLoaded", function () {
-    const isHidden = localStorage.getItem("sidebarHidden");
-    if (isHidden === "true") {
-        document.body.classList.add("sidebar-hidden");
-    }
-});
-
-// 2. Main toggle function for button clicks
-// Keep this implementation for sidebar toggling
-function toggleSidebar() {
-    if (!document.body) return;
-    document.body.classList.toggle("sidebar-hidden");
-    const isHidden = document.body.classList.contains("sidebar-hidden");
-    localStorage.setItem("sidebarHidden", isHidden ? "true" : "false");
-}
 </script>
 
-</body>
-</html>
+{% endblock %}

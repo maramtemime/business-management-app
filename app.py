@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date, timedelta
 from sqlalchemy import or_ 
+import json
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_session" 
@@ -11,7 +12,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///project.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-# --- DATABASE MODEL ---
+# --- DATABASE MODELS ---
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     client_name = db.Column(db.String(100), nullable=False)
@@ -24,6 +25,28 @@ class Task(db.Model):
     done = db.Column(db.Boolean, default=False)
     canceled = db.Column(db.Boolean, default=False)
     note = db.Column(db.Text, nullable=True)
+
+class Worker(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    full_name = db.Column(db.String(100), nullable=False)
+    phone_num = db.Column(db.String(20), nullable=False)
+    pay_per_normal_hr = db.Column(db.Float, default=0.0)
+    pay_per_extra_hr = db.Column(db.Float, default=0.0)
+    normal_hours = db.Column(db.Float, default=0.0)
+    extra_hours = db.Column(db.Float, default=0.0)
+    total_pay = db.Column(db.Float, default=0.0)
+    _activities = db.Column('activities', db.Text, default='{}')
+
+    @property
+    def activities(self):
+        try:
+            return json.loads(self._activities) if self._activities else {}
+        except Exception:
+            return {}
+
+    @activities.setter
+    def activities(self, value):
+        self._activities = json.dumps(value)
 
 def get_time_diff(task_date):
     """Return difference in days between task date and today"""
@@ -61,7 +84,6 @@ def dashboard():
     end_week_display = f"{end_week.day} {french_months[end_week.month]}"
     week_range_string = f"{start_week_display} au {end_week_display}"
 
-    # EXCLUDE canceled tasks from active dashboard view
     active_tasks = Task.query.filter_by(canceled=False).all()
     
     for t in active_tasks:
@@ -89,8 +111,6 @@ def dashboard():
 
     count_today = len(today_tasks)
     count_pending = len(pending_tasks)
-    
-    # FIX: Count ONLY tasks completed for the current week instead of all historical done tasks
     count_done = len(done_week_tasks)
 
     return render_template(
@@ -213,10 +233,13 @@ def update_task():
             task.date = date_value
             task.note = request.form.get("note", "").strip()
             
-            if not is_done_checked and task_date_obj < date.today():
+            # Fixed status update logic
+            if is_done_checked:
+                task.done = True
+            elif task_date_obj < date.today():
                 task.done = True
             else:
-                task.done = is_done_checked
+                task.done = False
                 
             db.session.commit()
                 
@@ -258,7 +281,7 @@ def check_date_tasks():
     if not date_val:
         return jsonify({"count": 0, "tasks": []})
     
-    tasks = Task.query.filter_by(date=date_val, canceled=False, done=False).all()
+    tasks = Task.query.filter_by(date=date_val, canceled=False).all()
     
     task_list = []
     for t in tasks:
@@ -301,6 +324,35 @@ def delete_client(client_id):
     db.session.delete(task)
     db.session.commit()
     return redirect(url_for('archive'))
+
+@app.route('/travailleurs', methods=['GET', 'POST'])
+def travailleurs():
+    if request.method == 'POST':
+        full_name = request.form.get('full_name', '').strip()
+        phone_num = request.form.get('phone_num', '').strip()
+        try:
+            pay_per_normal_hr = float(request.form.get('pay_per_normal_hr', 0))
+            pay_per_extra_hr = float(request.form.get('pay_per_extra_hr', 0))
+        except ValueError:
+            pay_per_normal_hr = 0.0
+            pay_per_extra_hr = 0.0
+        
+        new_worker = Worker(
+            full_name=full_name,
+            phone_num=phone_num,
+            pay_per_normal_hr=pay_per_normal_hr,
+            pay_per_extra_hr=pay_per_extra_hr,
+            normal_hours=0.0,
+            extra_hours=0.0,
+            total_pay=0.0,
+            activities={}
+        )
+        db.session.add(new_worker)
+        db.session.commit()
+        return redirect(url_for('travailleurs'))
+        
+    travailleurs = Worker.query.all()
+    return render_template('workers.html', travailleurs=travailleurs)
 
 if __name__ == "__main__":
     with app.app_context():

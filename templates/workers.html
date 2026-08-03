@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des Travailleurs{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="fw-bold text-dark mb-1">
+        <i class="bi bi-people-fill text-primary" ></i> Gestion des Travailleurs
+    </h2>
+    <p class="text-muted small mb-4">Consultez vos employés, leurs salaires et leurs activités hebdomadaires.</p>
+    
+    <button class="btn btn-primary px-4 py-2 rounded-3 fw-semibold " onclick="openModal()">
+        <i class="bi bi-plus-lg me-1"></i> Ajouter un travailleur
+    </button>
+</div>
+
+<!-- Table Container Card -->
+<div class="card-box">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Nom Complet</th>
+                    <th>Téléphone</th>
+                    <th>Prix/H Normal</th>
+                    <th>Prix/H Extra</th>
+                    <th>Total À Payer</th>
+                    <th class="text-center">Détails</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for worker in travailleurs %}
+                <tr>
+                    <td class="fw-semibold">{{ worker.full_name }}</td>
+                    <td>{{ worker.phone_num }}</td>
+                    <td>{{ worker.pay_per_normal_hr }} DT</td>
+                    <td>{{ worker.pay_per_extra_hr }} DT</td>
+                    <td class="fw-bold text-success">{{ worker.total_pay }} DT</td>
+                    <td class="text-center">
+                        <button type="button" class="toggle-arrow border-0 mx-auto" onclick="toggleDetails('details-{{ worker.id }}', this)">
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                    </td>
+                </tr>
+
+                <!-- Expandable Weekly Activities Row -->
+                <tr id="details-{{ worker.id }}" class="details-row">
+                    <td colspan="6" class="p-0">
+                        <div class="weekly-grid">
+                            {% set days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'] %}
+                            {% for day_name in days %}
+                                {% set activity = worker.activities.get(day_name, {}) %}
+                                <div class="day-card">
+                                    <div class="day-name">{{ day_name }}</div>
+                                    <div><strong>Norm:</strong> {{ activity.get('normal_hrs', 0) }}h</div>
+                                    <div><strong>Extra:</strong> {{ activity.get('extra_hrs', 0) }}h</div>
+                                    {% if activity.get('tache') %}
+                                        <div class="tache-tag">{{ activity.tache }}</div>
+                                    {% else %}
+                                        <div class="text-muted small mt-1">Aucune tâche</div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">
+                        Aucun travailleur enregistré.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Overlay -->
+<div class="overlay" id="modalOverlay" onclick="closeModal()"></div>
+
+<!-- Add Worker Modal Box -->
+<div class="modal-box" id="workerModal">
+    <h5 class="fw-bold mb-4" style="color: #1a2c54;">Ajouter un Travailleur</h5>
+    <form action="{{ url_for('travailleurs') }}" method="POST">
+        <div class="mb-3">
+            <input type="text" name="full_name" class="form-control" placeholder="Nom Complet" required>
+        </div>
+        <div class="mb-3">
+            <input type="text" name="phone_num" class="form-control" placeholder="Téléphone" required>
+        </div>
+        <div class="mb-3">
+            <input type="number" step="0.5" name="pay_per_normal_hr" class="form-control" placeholder="Prix / Heure Normale (DT)" required>
+        </div>
+        <div class="mb-3">
+            <input type="number" step="0.5" name="pay_per_extra_hr" class="form-control" placeholder="Prix / Heure Extra (DT)" required>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <button type="button" class="btn btn-light border px-4 rounded-3 fw-semibold" onclick="closeModal()">Annuler</button>
+            <button type="submit" class="btn btn-primary px-4 rounded-3 fw-semibold">Enregistrer</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleDetails(rowId, buttonElem) {
+        const row = document.getElementById(rowId);
+        row.classList.toggle('show');
+        buttonElem.classList.toggle('open');
+    }
+
+    function openModal() {
+        document.getElementById('workerModal').style.display = 'block';
+        document.getElementById('modalOverlay').style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('workerModal').style.display = 'none';
+        document.getElementById('modalOverlay').style.display = 'none';
+    }
+</script>
+{% endblock %}
