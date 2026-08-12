@@ -62,6 +62,34 @@
         display: inline-block;
         word-break: break-word;
     }
+    /* Input field validation styling */
+    .phone-wrapper {
+        position: relative;
+    }
+
+    .form-control.is-invalid {
+        border-color: #dc3545;
+        padding-right: 2.25rem;
+        background-image: none; /* Avoid browser default icon overlap */
+    }
+
+    .error-icon {
+        display: none;
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #dc3545;
+        font-size: 1.1rem;
+        pointer-events: none;
+    }
+
+    .error-message {
+        display: none;
+        color: #dc3545;
+        font-size: 0.8rem;
+        margin-top: 4px;
+    }
 </style>
 
 <div class="container-fluid py-4">
@@ -148,7 +176,19 @@
             <input type="text" name="full_name" class="form-control" placeholder="Nom Complet" required>
         </div>
         <div class="mb-3">
-            <input type="text" name="phone_num" class="form-control" placeholder="Téléphone" required>
+            <div class="phone-wrapper">
+                <input type="text" 
+                    id="workerPhoneInput" 
+                    name="phone_num" 
+                    class="form-control" 
+                    placeholder="Téléphone" 
+                    oninput="validatePhoneNumber(this)" 
+                    required>
+                <i class="bi bi-exclamation-circle error-icon" id="phoneErrorIcon"></i>
+            </div>
+            <div class="error-message" id="phoneErrorMessage">
+                Le numéro de téléphone doit contenir uniquement des chiffres.
+            </div>
         </div>
         <div class="mb-3">
             <input type="number" step="0.5" name="pay_per_normal_hr" class="form-control" placeholder="Prix / Heure Normale (DT)" required>
@@ -181,5 +221,24 @@
         document.getElementById('workerModal').style.display = 'none';
         document.getElementById('modalOverlay').style.display = 'none';
     }
+    function validatePhoneNumber(input) {
+    const errorIcon = document.getElementById('phoneErrorIcon');
+    const errorMessage = document.getElementById('phoneErrorMessage');
+    
+    // Check if the value contains anything other than digits
+    const hasLetters = /[^\d]/.test(input.value);
+
+    if (hasLetters) {
+        input.classList.add('is-invalid');
+        errorIcon.style.display = 'block';
+        errorMessage.style.display = 'block';
+        input.setCustomValidity('Invalid'); // Prevents form submission
+    } else {
+        input.classList.remove('is-invalid');
+        errorIcon.style.display = 'none';
+        errorMessage.style.display = 'none';
+        input.setCustomValidity(''); // Allows submission
+    }
+}
 </script>
 {% endblock %}
