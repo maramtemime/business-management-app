@@ -103,7 +103,7 @@
             </thead>
             <tbody>
                 {% for t in today_tasks %}
-                <tr ondblclick="openTask({{ t.id }})" style="cursor: pointer;" class="{% if t.note and t.note|string|trim != '' %}has-note{% endif %}">
+                <tr ondblclick="openTask('{{ t.id }}')" style="cursor: pointer;" class="{% if t.note and t.note|string|trim != '' %}has-note{% endif %}">
                     <td>{{ t.client_name }}</td>
                     <td>{{ t.phone }}</td>
                     <td>{{ t.direction or '-' }}</td>
@@ -142,7 +142,7 @@
             </thead>
             <tbody>
                 {% for t in pending_tasks %}
-                <tr ondblclick="openTask({{ t.id }})" style="cursor: pointer;" class="{% if t.note and t.note|string|trim != '' %}has-note{% endif %}">
+                <tr ondblclick="openTask('{{ t.id }}')" style="cursor: pointer;" class="{% if t.note and t.note|string|trim != '' %}has-note{% endif %}">
                     <td>{{ t.client_name }}</td>
                     <td>{{ t.phone }}</td>
                     <td>{{ t.direction or '-' }}</td>
@@ -183,7 +183,7 @@
             </thead>
             <tbody>
                 {% for t in done_week_tasks %}
-                <tr ondblclick="openTask({{ t.id }})" style="cursor: pointer;" class="{% if t.note and t.note|string|trim != '' %}has-note{% endif %}">
+                <tr ondblclick="openTask('{{ t.id }}')" style="cursor: pointer;" class="{% if t.note and t.note|string|trim != '' %}has-note{% endif %}">
                     <td>{{ t.client_name }}</td>
                     <td>{{ t.phone }}</td>
                     <td>{{ t.direction or '-' }}</td>

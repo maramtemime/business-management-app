@@ -3,13 +3,74 @@
 {% block title %}Gestion des Travailleurs{% endblock %}
 
 {% block content %}
+<style>
+    /* Hide details row by default */
+    .details-row {
+        display: none;
+    }
+
+    /* Show details row when toggled */
+    .details-row.show {
+        display: table-row;
+    }
+
+    /* Toggle arrow styling and smooth rotation */
+    .toggle-arrow {
+        background: transparent;
+        transition: transform 0.2s ease-in-out;
+        cursor: pointer;
+    }
+
+    .toggle-arrow.open i {
+        transform: rotate(180deg);
+        display: inline-block;
+    }
+
+    /* Grid configuration for weekly cards */
+    .weekly-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 12px;
+        padding: 16px;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .day-card {
+        background: #ffffff;
+        border: 1px solid #e3e6f0;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 0.85rem;
+    }
+
+    .day-name {
+        font-weight: 700;
+        color: #1a2c54;
+        border-bottom: 1px solid #edf2f7;
+        padding-bottom: 4px;
+        margin-bottom: 6px;
+    }
+
+    .tache-tag {
+        background-color: #e8f0fe;
+        color: #1a73e8;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        margin-top: 6px;
+        display: inline-block;
+        word-break: break-word;
+    }
+</style>
+
 <div class="container-fluid py-4">
     <h2 class="fw-bold text-dark mb-1">
-        <i class="bi bi-people-fill text-primary" ></i> Gestion des Travailleurs
+        <i class="bi bi-people-fill text-primary"></i> Gestion des Travailleurs
     </h2>
     <p class="text-muted small mb-4">Consultez vos employés, leurs salaires et leurs activités hebdomadaires.</p>
     
-    <button class="btn btn-primary px-4 py-2 rounded-3 fw-semibold " onclick="openModal()">
+    <button class="btn btn-primary px-4 py-2 rounded-3 fw-semibold" onclick="openModal()">
         <i class="bi bi-plus-lg me-1"></i> Ajouter un travailleur
     </button>
 </div>
