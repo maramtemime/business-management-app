@@ -132,38 +132,42 @@
                     </td>
                 </tr>
 
-                <!-- Expandable Weekly Activities Row -->
-                <tr id="details-{{ worker.id }}" class="details-row">
-                    <td colspan="6" class="p-0">
-                        <div class="weekly-grid">
-                            {% set days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'] %}
-                            {% for day_name in days %}
-                                {% set activity = worker.activities.get(day_name, {}) %}
-                                <div class="day-card">
-                                    <div class="day-name">{{ day_name }}</div>
-                                    <div><strong>Norm:</strong> {{ activity.get('normal_hrs', 0) }}h</div>
-                                    <div><strong>Extra:</strong> {{ activity.get('extra_hrs', 0) }}h</div>
-                                    {% if activity.get('tache') %}
-                                        <div class="tache-tag">{{ activity.tache }}</div>
-                                    {% else %}
-                                        <div class="text-muted small mt-1">Aucune tâche</div>
-                                    {% endif %}
-                                </div>
-                            {% endfor %}
+<!-- Expandable Weekly Activities Row -->
+        <tr id="details-{{ worker.id }}" class="details-row">
+            <td colspan="6" class="p-0">
+                <div class="weekly-grid">
+                    {% set days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'] %}
+                    {% for day_name in days %}
+                        {% set day_logs = worker.get_logs_for_day(day_name) %}
+                        {% set total_norm = day_logs | sum(attribute='normal_hours') %}
+                        {% set total_extra = day_logs | sum(attribute='extra_hours') %}
+
+                        <div class="day-card p-2 border rounded bg-white">
+                            <h6 class="fw-bold mb-1">{{ day_name }}</h6>
+                            <div class="small"><strong>Norm:</strong> {{ total_norm }}h</div>
+                            <div class="small mb-2"><strong>Extra:</strong> {{ total_extra }}h</div>
+                            
+                            <div class="tasks-container">
+                                {% if day_logs %}
+                                    {% for log in day_logs %}
+                                        <button 
+                                            type="button" 
+                                            class="btn btn-sm w-100 mb-1 text-start fw-semibold {% if log.is_updated %}btn-success{% else %}btn-warning text-dark{% endif %}"
+                                            onclick="openHoursModal('{{ log.id }}', '{{ log.task.client_name }}', '{{ log.normal_hours }}', '{{ log.extra_hours }}')"
+                                        >
+                                            <i class="bi bi-clock me-1"></i> {{ log.task.client_name }} ({{ log.normal_hours + log.extra_hours }}h)
+                                        </button>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="text-muted small">Aucune tâche</div>
+                                {% endif %}
+                            </div>
                         </div>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="6" class="text-center text-muted py-4">
-                        Aucun travailleur enregistré.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+                    {% endfor %}
+                </div>
+            </td>
+        </tr>
+    {% endfor %} <!-- ADDED: Closes the outer 'for worker in travailleurs' loop -->
 
 <!-- Modal Overlay -->
 <div class="overlay" id="modalOverlay" onclick="closeModal()"></div>
@@ -201,6 +205,33 @@
             <button type="submit" class="btn btn-primary px-4 rounded-3 fw-semibold">Enregistrer</button>
         </div>
     </form>
+</div>
+
+<div class="modal fade" id="hoursModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="hoursModalTitle">Modifier les heures</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="hoursForm" onsubmit="submitHours(event)">
+        <div class="modal-body">
+            <input type="hidden" id="log_id_input" name="log_id">
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Heures Normales :</label>
+                <input type="number" step="0.5" min="0" class="form-control" id="norm_hours_input" name="normal_hours" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Heures Extra :</label>
+                <input type="number" step="0.5" min="0" class="form-control" id="extra_hours_input" name="extra_hours" required>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="submit" class="btn btn-primary w-100">Valider & Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -240,5 +271,32 @@
         input.setCustomValidity(''); // Allows submission
     }
 }
+
+function openHoursModal(logId, clientName, norm, extra) {
+    document.getElementById('log_id_input').value = logId;
+    document.getElementById('norm_hours_input').value = norm;
+    document.getElementById('extra_hours_input').value = extra;
+    document.getElementById('hoursModalTitle').innerText = "Tâche: " + clientName;
+    
+    var modal = new bootstrap.Modal(document.getElementById('hoursModal'));
+    modal.show();
+}
+
+function submitHours(e) {
+    e.preventDefault();
+    const formData = new FormData(document.getElementById('hoursForm'));
+
+    fetch('/update_worker_hours', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.success) {
+            location.reload(); // Reloads page to update totals and change badge color to green
+        }
+    });
+}
+
 </script>
 {% endblock %}

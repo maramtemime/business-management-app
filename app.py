@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date, timedelta
 from sqlalchemy import or_ 
 import json
+import calendar
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_session" 
@@ -25,6 +26,7 @@ class Task(db.Model):
     done = db.Column(db.Boolean, default=False)
     canceled = db.Column(db.Boolean, default=False)
     note = db.Column(db.Text, nullable=True)
+    workers = db.Column(db.Text, nullable=True)
 
 class Worker(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -36,6 +38,40 @@ class Worker(db.Model):
     extra_hours = db.Column(db.Float, default=0.0)
     total_pay = db.Column(db.Float, default=0.0)
     _activities = db.Column('activities', db.Text, default='{}')
+    def get_logs_for_day(self, day_name):
+        """Returns WorkerTaskLog entries matching a specific French day of the week."""
+        french_days = {
+            'Lundi': 0, 'Mardi': 1, 'Mercredi': 2, 
+            'Jeudi': 3, 'Vendredi': 4, 'Samedi': 5, 'Dimanche': 6
+        }
+        
+        target_weekday = french_days.get(day_name)
+        if target_weekday is None:
+            return []
+
+        matched_logs = []
+        for log in self.task_logs:
+            try:
+                # Parses stored date_value ("YYYY-MM-DD")
+                log_date = datetime.strptime(log.date, "%Y-%m-%d").date()
+                if log_date.weekday() == target_weekday:
+                    matched_logs.append(log)
+            except (ValueError, TypeError):
+                continue
+                
+        return matched_logs
+    
+class WorkerTaskLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    worker_id = db.Column(db.Integer, db.ForeignKey('worker.id'), nullable=False)
+    task_id = db.Column(db.Integer, db.ForeignKey('task.id'), nullable=False)
+    date = db.Column(db.String(10), nullable=False) # e.g. "2026-08-17"
+    normal_hours = db.Column(db.Float, default=0.0)
+    extra_hours = db.Column(db.Float, default=0.0)
+    is_updated = db.Column(db.Boolean, default=False) # False = Yellow, True = Green
+
+    worker = db.relationship('Worker', backref=db.backref('task_logs', lazy=True))
+    task = db.relationship('Task', backref=db.backref('worker_logs', lazy=True))
 
     @property
     def activities(self):
@@ -113,6 +149,8 @@ def dashboard():
     count_pending = len(pending_tasks)
     count_done = len(done_week_tasks)
 
+    all_workers = Worker.query.all()
+
     return render_template(
         "dashboard.html",
         today_tasks=today_tasks,
@@ -123,7 +161,8 @@ def dashboard():
         count_done=count_done,
         today=today_display,
         week_range=week_range_string,
-        errors=errors
+        errors=errors,
+        all_workers=all_workers
     )
 
 @app.route("/add_task", methods=["POST"])
@@ -136,7 +175,9 @@ def add_task():
     invoice_raw = request.form.get("invoice", "0").strip()
     date_value = request.form.get("date", "").strip()
     note = request.form.get("note", "").strip()
-    
+    selected_workers = request.form.getlist("workers") 
+    workers_str = ",".join(selected_workers) if selected_workers else ""
+
     errors = []
 
     if not client_name or not description or not date_value:
@@ -175,13 +216,31 @@ def add_task():
         invoice=invoice,
         date=date_value, 
         done=True if is_past_date else False, 
-        note=note
+        note=note,
+        workers=workers_str
     )
 
     try:
         db.session.add(new_task)
         db.session.commit()
+
+        # Automatically log tasks for each assigned worker
+        for worker_name in selected_workers:
+            worker = Worker.query.filter_by(full_name=worker_name).first()
+            if worker:
+                log = WorkerTaskLog(
+                    worker_id=worker.id,
+                    task_id=new_task.id,
+                    date=date_value,
+                    normal_hours=0.0,
+                    extra_hours=0.0,
+                    is_updated=False  # Unfilled state (Yellow)
+                )
+                db.session.add(log)
+
+        db.session.commit()
         return jsonify({"success": True})
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "errors": ["Une erreur serveur est survenue."]}), 500
@@ -246,12 +305,16 @@ def update_task():
     except (ValueError, TypeError):
         db.session.rollback()
 
+    selected_workers = request.form.getlist("workers")
+    task.workers = ",".join(selected_workers) if selected_workers else ""
+
     return redirect(url_for("dashboard"))
 
 @app.route("/get_task/<int:index>")
 def get_task(index):
     task = Task.query.get(index)
     if task:
+        worker_list = task.workers.split(",") if task.workers else []
         return jsonify({
             "id": task.id,
             "client_name": task.client_name,
@@ -262,7 +325,8 @@ def get_task(index):
             "invoice": task.invoice,
             "date": task.date,
             "done": task.done,
-            "note": task.note
+            "note": task.note,
+            "workers": worker_list
         })
     return jsonify({"error": "Task not found"}), 404
 
@@ -353,6 +417,40 @@ def travailleurs():
         
     travailleurs = Worker.query.all()
     return render_template('workers.html', travailleurs=travailleurs)
+
+
+
+@app.route("/update_worker_hours", methods=["POST"])
+def update_worker_hours():
+    log_id = request.form.get("log_id")
+    try:
+        norm = float(request.form.get("normal_hours", 0))
+        extra = float(request.form.get("extra_hours", 0))
+    except ValueError:
+        return jsonify({"success": False, "error": "Valeurs invalides."}), 400
+
+    log = WorkerTaskLog.query.get(log_id)
+    if not log:
+        return jsonify({"success": False, "error": "Log introuvable."}), 404
+
+    # Update log entry
+    log.normal_hours = norm
+    log.extra_hours = extra
+    log.is_updated = True  # Flips status to Green
+
+    # Recalculate global worker totals
+    worker = log.worker
+    all_logs = WorkerTaskLog.query.filter_by(worker_id=worker.id).all()
+    
+    total_norm = sum(l.normal_hours for l in all_logs)
+    total_extra = sum(l.extra_hours for l in all_logs)
+    
+    worker.normal_hours = total_norm
+    worker.extra_hours = total_extra
+    worker.total_pay = (total_norm * worker.pay_per_normal_hr) + (total_extra * worker.pay_per_extra_hr)
+
+    db.session.commit()
+    return jsonify({"success": True})
 
 if __name__ == "__main__":
     with app.app_context():

@@ -238,6 +238,7 @@
                 </div>
             </div>
 
+            <!-- Existing task details card (hidden by default) -->
             <div id="dateTasksDetailCard" class="border rounded p-3 bg-white shadow-sm mb-3 d-none">
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <h6 class="mb-0 fw-bold text-primary">Tâches existantes</h6>
@@ -273,6 +274,7 @@
                         <span id="dtcStatus" class="badge bg-secondary">---</span>
                     </div>
                 </div>
+
                 <div class="mb-2">
                     <span class="text-muted small d-block">Notes</span>
                     <p id="dtcNote" class="bg-light p-2 rounded small text-muted mb-0">Aucune note.</p>
@@ -288,6 +290,32 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary rounded-circle" id="nextTaskBtn" onclick="navigateDateTasks(1)">
                         <i class="bi bi-arrow-right"></i>
                     </button>
+                </div>
+            </div>
+
+           
+            <!-- Travailleurs Checkboxes -->
+            <div class="mb-3">
+                <label class="form-label small text-muted mb-2 fw-semibold">Travailleurs (optionnel) :</label>
+                <div class="border rounded p-2 bg-light" style="max-height: 120px; overflow-y: auto;">
+                    {% if all_workers %}
+                        {% for worker in all_workers %}
+                            <div class="form-check">
+                                <input 
+                                    class="form-check-input" 
+                                    type="checkbox" 
+                                    name="workers" 
+                                    value="{{ worker.full_name }}" 
+                                    id="worker_{{ loop.index }}"
+                                >
+                                <label class="form-check-label small" for="worker_{{ loop.index }}">
+                                    {{ worker.full_name }}
+                                </label>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <span class="text-muted small">Aucun travailleur enregistré</span>
+                    {% endif %}
                 </div>
             </div>
 
@@ -376,6 +404,15 @@
                 </div>
             </div>
             
+            <div class="mb-2">
+                <label class="form-label small text-muted mb-1">Travailleurs :</label>
+                <select name="workers" id="edit_workers" class="form-select" multiple size="3">
+                    {% for worker in all_workers %}
+                        <option value="{{ worker.full_name }}">{{ worker.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <textarea class="form-control mb-2" name="note" id="note" placeholder="Notes..."></textarea>
             
             <div class="d-flex gap-2 mt-3 pb-1">
@@ -575,6 +612,15 @@ function openTask(taskId) {
 
             setVal("note", data.note || "");
 
+            // Handle worker selection list inside the .then block
+            const workerSelect = document.getElementById("edit_workers");
+            if (workerSelect) {
+                const assignedWorkers = data.workers || [];
+                Array.from(workerSelect.options).forEach(option => {
+                    option.selected = assignedWorkers.includes(option.value);
+                });
+            }
+
             disableEditMode();
 
             const globalOverlay = document.getElementById("globalOverlay");
@@ -584,6 +630,7 @@ function openTask(taskId) {
         })
         .catch(error => console.error("Error fetching task:", error));
 }
+
 
 function enableEditMode() {
     document.getElementById("taskDetailView").style.display = "none";
