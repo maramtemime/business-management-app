@@ -149,15 +149,16 @@
                             
                             <div class="tasks-container">
                                 {% if day_logs %}
-                                    {% for log in day_logs %}
-                                        <button 
-                                            type="button" 
-                                            class="btn btn-sm w-100 mb-1 text-start fw-semibold {% if log.is_updated %}btn-success{% else %}btn-warning text-dark{% endif %}"
-                                            onclick="openHoursModal('{{ log.id }}', '{{ log.task.client_name }}', '{{ log.normal_hours }}', '{{ log.extra_hours }}')"
-                                        >
-                                            <i class="bi bi-clock me-1"></i> {{ log.task.client_name }} ({{ log.normal_hours + log.extra_hours }}h)
-                                        </button>
-                                    {% endfor %}
+                                    {% set total_tasks = day_logs | length %}
+                                    {% set all_updated = day_logs | selectattr('is_updated', 'equalto', True) | list | length == total_tasks %}
+                                    
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm w-100 mb-1 fw-semibold {% if all_updated %}btn-success{% else %}btn-warning text-dark{% endif %}"
+                                        onclick="openDayTasksModal('{{ worker.id }}', '{{ day_name }}')"
+                                    >
+                                        <i class="bi bi-clock me-1"></i> {{ total_tasks }} tâche{% if total_tasks > 1 %}s{% endif %}
+                                    </button>
                                 {% else %}
                                     <div class="text-muted small">Aucune tâche</div>
                                 {% endif %}
@@ -207,29 +208,16 @@
     </form>
 </div>
 
-<div class="modal fade" id="hoursModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="hoursModalTitle">Modifier les heures</h5>
+<div class="modal fade" id="dayTasksModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow rounded-4">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold" id="dayTasksModalTitle">Tâches de la journée</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form id="hoursForm" onsubmit="submitHours(event)">
-        <div class="modal-body">
-            <input type="hidden" id="log_id_input" name="log_id">
-            <div class="mb-3">
-                <label class="form-label small fw-semibold">Heures Normales :</label>
-                <input type="number" step="0.5" min="0" class="form-control" id="norm_hours_input" name="normal_hours" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label small fw-semibold">Heures Extra :</label>
-                <input type="number" step="0.5" min="0" class="form-control" id="extra_hours_input" name="extra_hours" required>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button type="submit" class="btn btn-primary w-100">Valider & Enregistrer</button>
-        </div>
-      </form>
+      <div class="modal-body p-4" id="dayTasksModalBody">
+        <!-- Injected dynamically via JavaScript -->
+      </div>
     </div>
   </div>
 </div>
@@ -298,5 +286,88 @@ function submitHours(e) {
     });
 }
 
+// Store worker logs structured by worker and day in JavaScript
+
+const workerLogsData = JSON.parse('{{ worker_logs_data | tojson | safe }}');
+
+function openDayTasksModal(workerId, dayName) {
+    const logs = (workerLogsData[workerId] && workerLogsData[workerId][dayName]) || [];
+    const container = document.getElementById("dayTasksModalBody");
+    document.getElementById("dayTasksModalTitle").innerText = `Tâches - ${dayName}`;
+    
+    let html = '';
+
+    if (logs.length === 0) {
+        html = '<div class="text-muted text-center py-3">Aucune tâche pour cette journée.</div>';
+    } else {
+        logs.forEach(log => {
+            html += `
+            <div class="card mb-3 border-0 bg-light rounded-3 p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="fw-bold mb-0">${log.client_name}</h5>
+                    <span class="badge ${log.is_updated ? 'bg-success' : 'bg-warning text-dark'}">
+                        ${log.is_updated ? 'Mis à jour' : 'En attente'}
+                    </span>
+                </div>
+                
+                <div class="row g-2 text-muted small mb-3">
+                    <div class="col-6"><strong>Téléphone:</strong> ${log.phone || '-'}</div>
+                    <div class="col-6"><strong>Direction / Lieu:</strong> ${log.direction || '-'}</div>
+                    <div class="col-6"><strong>Travail:</strong> ${log.description || '-'}</div>
+                    <div class="col-6"><strong>Outils:</strong> ${log.tools || '-'}</div>
+                    <div class="col-6"><strong>Facture:</strong> <span class="badge bg-success">${log.invoice} DT</span></div>
+                    <div class="col-6"><strong>Date:</strong> ${log.date}</div>
+                    ${log.note ? `<div class="col-12"><strong>Notes:</strong> ${log.note}</div>` : ''}
+                </div>
+                
+                <hr>
+                
+                <form onsubmit="submitTaskHours(event, '${log.log_id}')" class="row g-2 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label small fw-semibold">Heures Normales</label>
+                        <input type="number" step="0.5" min="0" class="form-control" id="norm_${log.log_id}" value="${log.normal_hours}" required>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label small fw-semibold">Heures Extra</label>
+                        <input type="number" step="0.5" min="0" class="form-control" id="extra_${log.log_id}" value="${log.extra_hours}" required>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-check-lg"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>`;
+        });
+    }
+    
+    container.innerHTML = html;
+    const modal = new bootstrap.Modal(document.getElementById('dayTasksModal'));
+    modal.show();
+}
+
+function submitTaskHours(event, logId) {
+    event.preventDefault();
+    const norm = document.getElementById(`norm_${logId}`).value;
+    const extra = document.getElementById(`extra_${logId}`).value;
+    
+    const formData = new FormData();
+    formData.append("log_id", logId);
+    formData.append("normal_hours", norm);
+    formData.append("extra_hours", extra);
+    
+    fetch("/update_worker_hours", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.success) {
+            location.reload();
+        }
+    });
+}
 </script>
+
+
 {% endblock %}

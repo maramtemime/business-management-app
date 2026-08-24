@@ -416,7 +416,37 @@ def travailleurs():
         return redirect(url_for('travailleurs'))
         
     travailleurs = Worker.query.all()
-    return render_template('workers.html', travailleurs=travailleurs)
+    days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+
+    # Pre-build logs data structure
+    worker_logs_data = {}
+    for worker in travailleurs:
+        worker_logs_data[worker.id] = {}
+        for day_name in days:
+            logs = worker.get_logs_for_day(day_name)
+            worker_logs_data[worker.id][day_name] = [
+                {
+                    "log_id": log.id,
+                    "client_name": log.task.client_name,
+                    "phone": log.task.phone,
+                    "direction": log.task.direction,
+                    "description": log.task.description,
+                    "tools": log.task.tools,
+                    "invoice": log.task.invoice,
+                    "date": log.task.date,
+                    "note": log.task.note,
+                    "normal_hours": log.normal_hours,
+                    "extra_hours": log.extra_hours,
+                    "is_updated": log.is_updated
+                }
+                for log in logs
+            ]
+
+    return render_template(
+        'workers.html', 
+        travailleurs=travailleurs, 
+        worker_logs_data=worker_logs_data
+    )
 
 
 
