@@ -457,3 +457,29 @@ body.sidebar-hidden,
 html.preload-sidebar-hidden body {
     /* Your existing CSS rules for hidden sidebar */
 }
+
+/* Fix Calendar Header Day Names (dim. - sam.) */
+#archiveCalendar .fc-col-header-cell-cushion {
+    color: #212529 !important;
+    text-decoration: none !important;
+    font-weight: 700 !important;
+    font-size: 0.95rem;
+}
+
+/* Fix Calendar Date Numbers (1 - 31) */
+#archiveCalendar .fc-daygrid-day-number {
+    color: #212529 !important;
+    text-decoration: none !important;
+    font-weight: 500;
+}
+
+/* Optional: Keep dates from previous/next months slightly muted/gray */
+#archiveCalendar .fc-day-other .fc-daygrid-day-number {
+    color: #a0a0a0 !important;
+}
+
+/* Optional: Clean hover effect for dates */
+#archiveCalendar .fc-daygrid-day-number:hover,
+#archiveCalendar .fc-col-header-cell-cushion:hover {
+    color: #0d6efd !important;
+}

@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
 <div class="container-fluid py-4">
     
     <!-- Header -->
@@ -111,7 +114,7 @@
     </div>
 
     <!-- Archives Data Table -->
-    <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
+    <div class="card shadow-sm border-0 mb-4 rounded-3 overflow-hidden">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0" id="archiveTable">
@@ -196,6 +199,11 @@
                 </table>
             </div>
         </div>
+    </div>
+
+    <!-- Calendar View Card -->
+    <div class="card shadow-sm border-0 mb-4 rounded-3 p-3 bg-white">
+        <div id="archiveCalendar"></div>
     </div>
 
 </div>
@@ -487,5 +495,39 @@ function showDeleteConfirm() {
     const confirmModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
     confirmModal.show();
 }
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('archiveCalendar');
+    if (!calendarEl) return;
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'fr',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: ''
+        },
+        buttonText: {
+            today: "Aujourd'hui"
+        },
+        events: '/api/archive_events',
+        eventClick: function(info) {
+            const targetRow = document.querySelector(`#archiveTable tbody tr[data-id="${info.event.id}"]`);
+            if (targetRow) {
+                openTaskDetails(targetRow);
+            }
+        },
+        dateClick: function(info) {
+            document.getElementById('dateFilterMode').value = 'date';
+            handleFilterModeChange();
+            document.getElementById('filterExactDate').value = info.dateStr;
+            filterArchiveTable();
+        }
+    });
+
+    calendar.render();
+    setTimeout(() => calendar.updateSize(), 100);
+});
+
 </script>
 {% endblock %}

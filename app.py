@@ -482,6 +482,28 @@ def update_worker_hours():
     db.session.commit()
     return jsonify({"success": True})
 
+@app.route("/api/archive_events")
+def get_archive_events():
+    archived_tasks = Task.query.filter(
+        or_(Task.done == True, Task.canceled == True)
+    ).all()
+    
+    events = []
+    for task in archived_tasks:
+        # Determine status color: Green for completed, Red for canceled
+        is_canceled = task.canceled
+        events.append({
+            "id": task.id,
+            "title": task.client_name,
+            "start": task.date,  # Expected format YYYY-MM-DD
+            "display": "list-item",
+            "color": "#dc3545" if is_canceled else "#198754",
+            "extendedProps": {
+                "status": "canceled" if is_canceled else "completed"
+            }
+        })
+    return jsonify(events)
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
