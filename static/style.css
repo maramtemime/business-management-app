@@ -483,3 +483,24 @@ html.preload-sidebar-hidden body {
 #archiveCalendar .fc-col-header-cell-cushion:hover {
     color: #0d6efd !important;
 }
+
+/* Force long continuous text strings to break line */
+.table td, .table th {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+/* Fix table layout so columns strictly follow proportions */
+.table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+/* Truncate client name or direction gracefully with ellipsis if preferred */
+.text-truncate-custom {
+    max-width: 180px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+}
