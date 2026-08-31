@@ -3,6 +3,14 @@
 {% block title %}Dashboard - Gestion des tâches{% endblock %}
 
 {% block content %}
+
+<style>
+/* Active checked state: keeps text normal black and sets check icon to blue */
+.tool-item.active .icon-state {
+    color: #0d6efd !important;
+}
+</style>
+
 {% if errors %}
 <div class="alert alert-danger">
     <ul class="mb-0">
@@ -108,7 +116,19 @@
                     <td>{{ t.phone }}</td>
                     <td>{{ t.direction or '-' }}</td>
                     <td>{{ t.description }}</td>
-                    <td>{{ t.tools }}</td>
+                    <td>
+                        {% if t.tools %}
+                            {% for tool in t.tools.split(',') %}
+                                <span class="tool-item d-inline-flex align-items-center me-2 mb-1" 
+                                    data-tool-key="task_{{ t.id }}_tool_{{ loop.index }}"
+                                    onclick="toggleTool(this)" 
+                                    style="cursor: pointer;">
+                                    <i class="bi bi-circle text-primary me-1 icon-state"></i>
+                                    <span class="text-dark">{{ tool.strip() }}</span>
+                                </span>
+                            {% endfor %}
+                        {% endif %}
+                    </td>
                     <td>{{ t.invoice }} DT</td>
                     <td>
                         {% if t.done %}
@@ -147,7 +167,19 @@
                     <td>{{ t.phone }}</td>
                     <td>{{ t.direction or '-' }}</td>
                     <td>{{ t.description }}</td>
-                    <td>{{ t.tools }}</td>
+                    <td>
+                        {% if t.tools %}
+                            {% for tool in t.tools.split(',') %}
+                                <span class="tool-item d-inline-flex align-items-center me-2 mb-1" 
+                                    data-tool-key="task_{{ t.id }}_tool_{{ loop.index }}"
+                                    onclick="toggleTool(this)" 
+                                    style="cursor: pointer;">
+                                    <i class="bi bi-circle text-primary me-1 icon-state"></i>
+                                    <span class="text-dark">{{ tool.strip() }}</span>
+                                </span>
+                            {% endfor %}
+                        {% endif %}
+                    </td>
                     <td>{{ t.invoice }} DT</td>
                     <td>{{ t.date_display }}</td>
                     <td>
@@ -188,7 +220,19 @@
                     <td>{{ t.phone }}</td>
                     <td>{{ t.direction or '-' }}</td>
                     <td>{{ t.description }}</td>
-                    <td>{{ t.tools }}</td>
+                    <td>
+                        {% if t.tools %}
+                            {% for tool in t.tools.split(',') %}
+                                <span class="tool-item d-inline-flex align-items-center me-2 mb-1" 
+                                    data-tool-key="task_{{ t.id }}_tool_{{ loop.index }}"
+                                    onclick="toggleTool(this)" 
+                                    style="cursor: pointer;">
+                                    <i class="bi bi-circle text-primary me-1 icon-state"></i>
+                                    <span class="text-dark">{{ tool.strip() }}</span>
+                                </span>
+                            {% endfor %}
+                        {% endif %}
+                    </td>
                     <td>{{ t.invoice }} DT</td>
                     <td>{{ t.date_display }}</td>
                 </tr>
@@ -752,6 +796,58 @@ function scrollToSection(sectionId) {
         });
     }
 }
+
+function toggleTool(button) {
+    const icon = button.querySelector('.icon-state');
+    
+    // Toggle active state locally
+    button.classList.toggle('active');
+    
+    if (button.classList.contains('active')) {
+        icon.classList.remove('bi-circle');
+        icon.classList.add('bi-check-circle-fill');
+    } else {
+        icon.classList.remove('bi-check-circle-fill');
+        icon.classList.add('bi-circle');
+    }
+}
+
+function toggleTool(element) {
+    const icon = element.querySelector('.icon-state');
+    
+    element.classList.toggle('active');
+    
+    const isActive = element.classList.contains('active');
+    
+    if (isActive) {
+        icon.classList.remove('bi-circle');
+        icon.classList.add('bi-check-circle-fill', 'text-primary');
+    } else {
+        icon.classList.remove('bi-check-circle-fill');
+        icon.classList.add('bi-circle', 'text-primary');
+    }
+
+    // Save state to localStorage
+    const key = element.getAttribute('data-tool-key');
+    if (key) {
+        localStorage.setItem(key, isActive ? 'active' : 'inactive');
+    }
+}
+
+// Restore saved tool states when page finishes loading
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll('.tool-item').forEach(element => {
+        const key = element.getAttribute('data-tool-key');
+        if (key && localStorage.getItem(key) === 'active') {
+            element.classList.add('active');
+            const icon = element.querySelector('.icon-state');
+            if (icon) {
+                icon.classList.remove('bi-circle');
+                icon.classList.add('bi-check-circle-fill', 'text-primary');
+            }
+        }
+    });
+});
 </script>
 
 {% endblock %}

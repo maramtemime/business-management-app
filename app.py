@@ -504,6 +504,15 @@ def get_archive_events():
         })
     return jsonify(events)
 
+# app.py
+@app.route("/api/task/<int:task_id>/toggle_tool", methods=["POST"])
+def toggle_tool(task_id):
+    data = request.json
+    tool_name = data.get("tool_name")
+    # Update your task tools status in database here
+    db.session.commit()
+    return jsonify({"success": True})
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
