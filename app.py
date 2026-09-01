@@ -513,6 +513,30 @@ def toggle_tool(task_id):
     db.session.commit()
     return jsonify({"success": True})
 
+@app.route('/get_worker/<int:worker_id>', methods=['GET'])
+def get_worker(worker_id):
+    worker = Worker.query.get_or_404(worker_id)
+    return jsonify({
+        'id': worker.id,
+        'full_name': worker.full_name,
+        'phone_num': worker.phone_num or '',
+        'pay_per_normal_hr': worker.pay_per_normal_hr,
+        'pay_per_extra_hr': worker.pay_per_extra_hr
+    })
+
+@app.route('/update_worker', methods=['POST'])
+def update_worker():
+    worker_id = request.form.get('worker_id')
+    worker = Worker.query.get_or_404(worker_id)
+    
+    worker.full_name = request.form.get('full_name')
+    worker.phone_num = request.form.get('phone_num')
+    worker.pay_per_normal_hr = float(request.form.get('pay_per_normal_hr', 0))
+    worker.pay_per_extra_hr = float(request.form.get('pay_per_extra_hr', 0))
+    
+    db.session.commit()
+    return redirect(url_for('travailleurs'))
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()

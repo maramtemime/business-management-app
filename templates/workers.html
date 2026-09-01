@@ -122,7 +122,9 @@
 <div class="card-box p-3">
     {% for worker in travailleurs %}
     <!-- Worker Feed Item -->
-    <div class="card border rounded-3 p-3 mb-3 shadow-sm bg-white">
+    <div class="card border rounded-3 p-3 mb-3 shadow-sm bg-white" 
+         ondblclick="openWorker('{{ worker.id }}')" 
+         style="cursor: pointer;">
         <!-- Main Header Row: Avatar + Name on Top + Details below -->
         <div class="d-flex align-items-center gap-3">
             <!-- Initials Avatar Bubble -->
@@ -143,13 +145,18 @@
                 </div>
             </div>
 
-            <!-- Toggle Arrow -->
-            <button type="button" class="toggle-arrow border-0 ms-auto p-2" onclick="toggleDetails('details-{{ worker.id }}', this)">
-                <i class="bi bi-chevron-down fs-5"></i>
-            </button>
+            <!-- Action Buttons -->
+            <div class="d-flex align-items-center gap-2 ms-auto">
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-circle" onclick="event.stopPropagation(); openWorker('{{ worker.id }}');" title="Modifier">
+                    <i class="bi bi-pencil-fill"></i>
+                </button>
+                <button type="button" class="toggle-arrow border-0 p-2" onclick="event.stopPropagation(); toggleDetails('details-{{ worker.id }}', this)">
+                    <i class="bi bi-chevron-down fs-5"></i>
+                </button>
+            </div>
         </div>
 
-        <!-- Weekly Check Grid (Intact) -->
+        <!-- Weekly Check Grid -->
         <div id="details-{{ worker.id }}" class="details-row mt-3">
             <div class="weekly-grid rounded-3">
                 {% set days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'] %}
@@ -188,7 +195,7 @@
 </div>
 
 <!-- Modal Overlay -->
-<div class="overlay" id="modalOverlay" onclick="closeModal()"></div>
+<div class="overlay" id="modalOverlay" onclick="closeAllWorkerModals()"></div>
 
 <!-- Add Worker Modal Box -->
 <div class="modal-box" id="workerModal">
@@ -225,6 +232,79 @@
     </form>
 </div>
 
+<!-- View / Edit Worker Modal -->
+<div class="modal-box" id="workerEditModal" style="max-width: 420px; display: none;">
+    <!-- View Mode -->
+    <div id="workerDetailView">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0 fw-bold" id="viewWorkerName">Nom du Travailleur</h5>
+            <button class="btn btn-sm btn-outline-primary rounded-circle" onclick="enableWorkerEditMode()" title="Modifier">
+                <i class="bi bi-pencil-fill"></i>
+            </button>
+        </div>
+        <hr class="my-2">
+        
+        <div class="mb-2">
+            <span class="text-muted small d-block">Téléphone</span>
+            <strong id="viewWorkerPhone" class="text-dark">---</strong>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-6">
+                <span class="text-muted small d-block">Prix / H Normale</span>
+                <span id="viewPayNormal" class="fw-semibold text-dark">0.0 DT</span>
+            </div>
+            <div class="col-6">
+                <span class="text-muted small d-block">Prix / H Extra</span>
+                <span id="viewPayExtra" class="fw-semibold text-dark">0.0 DT</span>
+            </div>
+        </div>
+        
+        <button type="button" class="btn btn-secondary w-100" onclick="closeAllWorkerModals()">Fermer</button>
+    </div>
+
+    <!-- Edit Mode -->
+    <div id="workerEditView" style="display: none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0 fw-bold">Modifier le travailleur</h5>
+            <button class="btn btn-sm btn-light rounded-circle" onclick="disableWorkerEditMode()" title="Annuler">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        
+        <form action="/update_worker" method="POST">
+            <input type="hidden" name="worker_id" id="edit_worker_id">
+            
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Nom Complet</label>
+                <input class="form-control" name="full_name" id="edit_full_name" required>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Téléphone</label>
+                <input class="form-control" name="phone_num" id="edit_phone_num">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Prix / Heure Normale (DT)</label>
+                <input type="number" step="0.5" class="form-control" name="pay_per_normal_hr" id="edit_pay_normal" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Prix / Heure Extra (DT)</label>
+                <input type="number" step="0.5" class="form-control" name="pay_per_extra_hr" id="edit_pay_extra" required>
+            </div>
+            
+            <div class="d-flex gap-2 mt-4">
+                <button type="button" class="btn btn-light border flex-grow-1" onclick="disableWorkerEditMode()">Annuler</button>
+                <button type="submit" class="btn btn-primary flex-grow-1">
+                    <i class="bi bi-check-lg"></i> Sauvegarder
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="modal fade" id="dayTasksModal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content border-0 shadow rounded-4">
@@ -243,19 +323,9 @@
 {% block scripts %}
 <script>
     function getDistinctColor(index) {
-        // Uses golden ratio hue step (137.5 deg) so every worker gets a unique, well-separated shade
         const hue = (index * 137.5) % 360;
         return `hsl(${hue}, 65%, 45%)`;
     }
-
-    document.addEventListener("DOMContentLoaded", function() {
-        const avatars = document.querySelectorAll('.worker-avatar');
-        avatars.forEach((avatar, index) => {
-            if (!avatar.style.backgroundColor || avatar.style.backgroundColor === 'rgb(13, 110, 253)') {
-                avatar.style.backgroundColor = getDistinctColor(index);
-            }
-        });
-    });
 
     function toggleDetails(rowId, buttonElem) {
         const row = document.getElementById(rowId);
@@ -271,6 +341,52 @@
     function closeModal() {
         document.getElementById('workerModal').style.display = 'none';
         document.getElementById('modalOverlay').style.display = 'none';
+    }
+
+    function openWorker(workerId) {
+        if (!workerId) return;
+
+        fetch(`/get_worker/${workerId}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("viewWorkerName").innerText = data.full_name || "";
+                document.getElementById("viewWorkerPhone").innerText = data.phone_num || "---";
+                document.getElementById("viewPayNormal").innerText = `${data.pay_per_normal_hr} DT`;
+                document.getElementById("viewPayExtra").innerText = `${data.pay_per_extra_hr} DT`;
+
+                document.getElementById("edit_worker_id").value = data.id;
+                document.getElementById("edit_full_name").value = data.full_name || "";
+                document.getElementById("edit_phone_num").value = data.phone_num || "";
+                document.getElementById("edit_pay_normal").value = data.pay_per_normal_hr || 0;
+                document.getElementById("edit_pay_extra").value = data.pay_per_extra_hr || 0;
+
+                disableWorkerEditMode();
+
+                document.getElementById("modalOverlay").style.display = "block";
+                document.getElementById("workerEditModal").style.display = "block";
+            })
+            .catch(error => console.error("Error fetching worker:", error));
+    }
+
+    function enableWorkerEditMode() {
+        document.getElementById("workerDetailView").style.display = "none";
+        document.getElementById("workerEditView").style.display = "block";
+    }
+
+    function disableWorkerEditMode() {
+        document.getElementById("workerDetailView").style.display = "block";
+        document.getElementById("workerEditView").style.display = "none";
+    }
+
+    function closeAllWorkerModals() {
+        const workerEditModal = document.getElementById("workerEditModal");
+        const workerModal = document.getElementById("workerModal");
+        const overlay = document.getElementById("modalOverlay");
+        
+        if (workerEditModal) workerEditModal.style.display = "none";
+        if (workerModal) workerModal.style.display = "none";
+        if (overlay) overlay.style.display = "none";
+        disableWorkerEditMode();
     }
 
     function validatePhoneNumber(input) {
@@ -292,89 +408,64 @@
         }
     }
 
-    function openHoursModal(logId, clientName, norm, extra) {
-        document.getElementById('log_id_input').value = logId;
-        document.getElementById('norm_hours_input').value = norm;
-        document.getElementById('extra_hours_input').value = extra;
-        document.getElementById('hoursModalTitle').innerText = "Tâche: " + clientName;
-        
-        var modal = new bootstrap.Modal(document.getElementById('hoursModal'));
-        modal.show();
-    }
-
-    function submitHours(e) {
-        e.preventDefault();
-        const formData = new FormData(document.getElementById('hoursForm'));
-
-        fetch('/update_worker_hours', {
-            method: 'POST',
-            body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-            if(data.success) {
-                location.reload();
-            }
-        });
-    }
-
     const workerLogsData = JSON.parse('{{ worker_logs_data | tojson | safe }}');
 
     function openDayTasksModal(workerId, dayName) {
-        const logs = (workerLogsData[workerId] && workerLogsData[workerId][dayName]) || [];
-        const container = document.getElementById("dayTasksModalBody");
-        document.getElementById("dayTasksModalTitle").innerText = `Tâches - ${dayName}`;
-        
-        let html = '';
+    const logs = (workerLogsData[workerId] && workerLogsData[workerId][dayName]) || [];
+    const container = document.getElementById("dayTasksModalBody");
+    document.getElementById("dayTasksModalTitle").innerText = `Tâches - ${dayName}`;
+    
+    let html = '';
 
-        if (logs.length === 0) {
-            html = '<div class="text-muted text-center py-3">Aucune tâche pour cette journée.</div>';
-        } else {
-            logs.forEach(log => {
-                html += `
-                <div class="card mb-3 border-0 bg-light rounded-3 p-3">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h5 class="fw-bold mb-0">${log.client_name}</h5>
-                        <span class="badge ${log.is_updated ? 'bg-success' : 'bg-warning text-dark'}">
-                            ${log.is_updated ? 'Mis à jour' : 'En attente'}
-                        </span>
+    if (logs.length === 0) {
+        html = '<div class="text-muted text-center py-3">Aucune tâche pour cette journée.</div>';
+    } else {
+        logs.forEach(log => {
+            html += `
+            <div class="card mb-3 border rounded-3 p-3 bg-light shadow-sm">
+                <!-- Header Info -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <h6 class="fw-bold mb-0 d-inline text-dark me-2">${log.client_name}</h6>
+                        <span class="badge bg-success">${log.invoice} DT</span>
+                    </div>
+                    <span class="badge ${log.is_updated ? 'bg-success-subtle text-success border border-success' : 'bg-warning-subtle text-warning-emphasis border border-warning'}">
+                        ${log.is_updated ? 'Mis à jour' : 'En attente'}
+                    </span>
+                </div>
+                
+                <!-- Compact Details Row -->
+                <div class="row g-2 text-muted small mb-3">
+                    <div class="col-6 col-md-3"><strong>Tél:</strong> ${log.phone || '-'}</div>
+                    <div class="col-6 col-md-3"><strong>Lieu:</strong> ${log.direction || '-'}</div>
+                    <div class="col-6 col-md-3"><strong>Travail:</strong> ${log.description || '-'}</div>
+                    <div class="col-6 col-md-3"><strong>Outils:</strong> ${log.tools || '-'}</div>
+                </div>
+                
+                <!-- Single-Line Form Bar -->
+                <form onsubmit="submitTaskHours(event, '${log.log_id}')" class="bg-white p-2 rounded border d-flex align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-1 flex-grow-1">
+                        <label class="small text-secondary fw-semibold mb-0 text-nowrap">Norm (h):</label>
+                        <input type="number" step="0.5" min="0" class="form-control form-control-sm" id="norm_${log.log_id}" value="${log.normal_hours}" required>
                     </div>
                     
-                    <div class="row g-2 text-muted small mb-3">
-                        <div class="col-6"><strong>Téléphone:</strong> ${log.phone || '-'}</div>
-                        <div class="col-6"><strong>Direction / Lieu:</strong> ${log.direction || '-'}</div>
-                        <div class="col-6"><strong>Travail:</strong> ${log.description || '-'}</div>
-                        <div class="col-6"><strong>Outils:</strong> ${log.tools || '-'}</div>
-                        <div class="col-6"><strong>Facture:</strong> <span class="badge bg-success">${log.invoice} DT</span></div>
-                        <div class="col-6"><strong>Date:</strong> ${log.date}</div>
-                        ${log.note ? `<div class="col-12"><strong>Notes:</strong> ${log.note}</div>` : ''}
+                    <div class="d-flex align-items-center gap-1 flex-grow-1">
+                        <label class="small text-secondary fw-semibold mb-0 text-nowrap">Extra (h):</label>
+                        <input type="number" step="0.5" min="0" class="form-control form-control-sm" id="extra_${log.log_id}" value="${log.extra_hours}" required>
                     </div>
-                    
-                    <hr>
-                    
-                    <form onsubmit="submitTaskHours(event, '${log.log_id}')" class="row g-2 align-items-end">
-                        <div class="col-md-5">
-                            <label class="form-label small fw-semibold">Heures Normales</label>
-                            <input type="number" step="0.5" min="0" class="form-control" id="norm_${log.log_id}" value="${log.normal_hours}" required>
-                        </div>
-                        <div class="col-md-5">
-                            <label class="form-label small fw-semibold">Heures Extra</label>
-                            <input type="number" step="0.5" min="0" class="form-control" id="extra_${log.log_id}" value="${log.extra_hours}" required>
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="bi bi-check-lg"></i>
-                            </button>
-                        </div>
-                    </form>
-                </div>`;
-            });
-        }
-        
-        container.innerHTML = html;
-        const modal = new bootstrap.Modal(document.getElementById('dayTasksModal'));
-        modal.show();
+
+                    <button type="submit" class="btn btn-sm btn-primary px-3 text-nowrap ms-auto">
+                        <i class="bi bi-check-lg"></i> Valider
+                    </button>
+                </form>
+            </div>`;
+        });
     }
+    
+    container.innerHTML = html;
+    const modal = new bootstrap.Modal(document.getElementById('dayTasksModal'));
+    modal.show();
+}
 
     function submitTaskHours(event, logId) {
         event.preventDefault();
@@ -398,23 +489,13 @@
         });
     }
 
-    function getWorkerColor(workerId) {
-    // Generate a distinct hue based on the numerical worker ID
-    const numericId = parseInt(workerId) || Math.floor(Math.random() * 100);
-    const hue = (numericId * 137.5) % 360; // Golden ratio spread prevents overlapping shades
-    return `hsl(${hue}, 70%, 45%)`;
-}
-
-document.addEventListener("DOMContentLoaded", function() {
-    const avatars = document.querySelectorAll('.worker-avatar');
-    avatars.forEach((avatar) => {
-        // If no background-color was rendered from the backend, compute a unique one
-        if (!avatar.style.backgroundColor) {
-            const workerId = avatar.id.replace('avatar-', '');
-            avatar.style.backgroundColor = getWorkerColor(workerId);
-        }
+    document.addEventListener("DOMContentLoaded", function() {
+        const avatars = document.querySelectorAll('.worker-avatar');
+        avatars.forEach((avatar, index) => {
+            if (!avatar.style.backgroundColor || avatar.style.backgroundColor === 'rgb(13, 110, 253)') {
+                avatar.style.backgroundColor = getDistinctColor(index);
+            }
+        });
     });
-});
-
 </script>
 {% endblock %}
