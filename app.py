@@ -409,7 +409,7 @@ def travailleurs():
             normal_hours=0.0,
             extra_hours=0.0,
             total_pay=0.0,
-            activities={}
+            
         )
         db.session.add(new_worker)
         db.session.commit()
