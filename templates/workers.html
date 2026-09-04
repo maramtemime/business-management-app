@@ -3,6 +3,10 @@
 {% block title %}Gestion des Travailleurs{% endblock %}
 
 {% block content %}
+<!-- FullCalendar Library -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
 <style>
     /* Hide details row by default */
     .details-row {
@@ -105,6 +109,40 @@
         font-size: 1.1rem;
         flex-shrink: 0;
     }
+
+    /* Worker Selector Buttons */
+    .worker-pill {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+    }
+    .worker-pill.active {
+        border-color: #0d6efd;
+        background-color: #e8f0fe !important;
+    }
+    .worker-avatar-sm {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.85rem;
+    }
+
+    /* Fix FullCalendar styling to make text black and remove underlines */
+    #workerCalendar .fc-col-header-cell-cushion,
+    #workerCalendar .fc-daygrid-day-number {
+        color: #212529 !important;
+        text-decoration: none !important;
+    }
+
+    /* Ensure title and navigation buttons stay dark */
+    #workerCalendar .fc-toolbar-title {
+        color: #212529 !important;
+    }
 </style>
 
 <div class="container-fluid py-4">
@@ -130,7 +168,7 @@
             <!-- Initials Avatar Bubble -->
             <div class="worker-avatar" 
                 id="avatar-{{ worker.id }}"
-                style="{% if worker.color %}background-color: {{ worker.color }};{% endif %}">
+                style="background-color: {{ worker.color if worker.color else ['#dc3545', '#198754', '#6f42c1', '#fd7e14', '#0d6efd', '#20c997', '#d63384'][loop.index0 % 7] }};">
                 {{ (worker.full_name.split()[0][0] + (worker.full_name.split()[1][0] if worker.full_name.split()|length > 1 else '')) | upper }}
             </div>
 
@@ -318,10 +356,45 @@
     </div>
   </div>
 </div>
+
+<div class="container-fluid py-4">
+    <h4 class="fw-bold text-dark mb-3">
+        <i class="bi bi-calendar3 text-primary"></i> Calendrier Annuel des Travailleurs
+    </h4>
+
+    <!-- Worker Selector Filter -->
+    <div class="d-flex align-items-center gap-2 overflow-x-auto pb-2 mb-4" id="workerSelectorContainer">
+        <!-- Calendar Selector Pill -->
+        {% for worker in travailleurs %}
+        {% set default_color = ['#dc3545', '#198754', '#6f42c1', '#fd7e14', '#0d6efd', '#20c997', '#d63384'][loop.index0 % 7] %}
+        {% set assigned_color = worker.color if worker.color else default_color %}
+
+        <div class="worker-pill bg-white border rounded-pill px-3 py-1 d-flex align-items-center gap-2 shadow-sm"
+            onclick="selectWorker('{{ worker.id }}', '{{ assigned_color }}')"
+            id="pill-{{ worker.id }}">
+            <div class="worker-avatar-sm worker-avatar" 
+                id="avatar-pill-{{ worker.id }}"
+                style="background-color: {{ assigned_color }};">
+                {{ (worker.full_name.split()[0][0] + (worker.full_name.split()[1][0] if worker.full_name.split()|length > 1 else '')) | upper }}
+            </div>
+            <span class="fw-semibold text-dark small text-nowrap">{{ worker.full_name }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Calendar View Card (Matches Archives style) -->
+    <div class="card shadow-sm border-0 mb-4 rounded-3 p-3 bg-white">
+        <div id="workerCalendar"></div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    let calendar = null;
+    let currentSelectedWorkerId = null;
+    const workerActivityData = JSON.parse('{{ worker_activity_data | default({}) | tojson | safe }}');
+
     function getDistinctColor(index) {
         const hue = (index * 137.5) % 360;
         return `hsl(${hue}, 65%, 45%)`;
@@ -411,61 +484,58 @@
     const workerLogsData = JSON.parse('{{ worker_logs_data | tojson | safe }}');
 
     function openDayTasksModal(workerId, dayName) {
-    const logs = (workerLogsData[workerId] && workerLogsData[workerId][dayName]) || [];
-    const container = document.getElementById("dayTasksModalBody");
-    document.getElementById("dayTasksModalTitle").innerText = `Tâches - ${dayName}`;
-    
-    let html = '';
+        const logs = (workerLogsData[workerId] && workerLogsData[workerId][dayName]) || [];
+        const container = document.getElementById("dayTasksModalBody");
+        document.getElementById("dayTasksModalTitle").innerText = `Tâches - ${dayName}`;
+        
+        let html = '';
 
-    if (logs.length === 0) {
-        html = '<div class="text-muted text-center py-3">Aucune tâche pour cette journée.</div>';
-    } else {
-        logs.forEach(log => {
-            html += `
-            <div class="card mb-3 border rounded-3 p-3 bg-light shadow-sm">
-                <!-- Header Info -->
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <div>
-                        <h6 class="fw-bold mb-0 d-inline text-dark me-2">${log.client_name}</h6>
-                        <span class="badge bg-success">${log.invoice} DT</span>
-                    </div>
-                    <span class="badge ${log.is_updated ? 'bg-success-subtle text-success border border-success' : 'bg-warning-subtle text-warning-emphasis border border-warning'}">
-                        ${log.is_updated ? 'Mis à jour' : 'En attente'}
-                    </span>
-                </div>
-                
-                <!-- Compact Details Row -->
-                <div class="row g-2 text-muted small mb-3">
-                    <div class="col-6 col-md-3"><strong>Tél:</strong> ${log.phone || '-'}</div>
-                    <div class="col-6 col-md-3"><strong>Lieu:</strong> ${log.direction || '-'}</div>
-                    <div class="col-6 col-md-3"><strong>Travail:</strong> ${log.description || '-'}</div>
-                    <div class="col-6 col-md-3"><strong>Outils:</strong> ${log.tools || '-'}</div>
-                </div>
-                
-                <!-- Single-Line Form Bar -->
-                <form onsubmit="submitTaskHours(event, '${log.log_id}')" class="bg-white p-2 rounded border d-flex align-items-center gap-2">
-                    <div class="d-flex align-items-center gap-1 flex-grow-1">
-                        <label class="small text-secondary fw-semibold mb-0 text-nowrap">Norm (h):</label>
-                        <input type="number" step="0.5" min="0" class="form-control form-control-sm" id="norm_${log.log_id}" value="${log.normal_hours}" required>
+        if (logs.length === 0) {
+            html = '<div class="text-muted text-center py-3">Aucune tâche pour cette journée.</div>';
+        } else {
+            logs.forEach(log => {
+                html += `
+                <div class="card mb-3 border rounded-3 p-3 bg-light shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <h6 class="fw-bold mb-0 d-inline text-dark me-2">${log.client_name}</h6>
+                            <span class="badge bg-success">${log.invoice} DT</span>
+                        </div>
+                        <span class="badge ${log.is_updated ? 'bg-success-subtle text-success border border-success' : 'bg-warning-subtle text-warning-emphasis border border-warning'}">
+                            ${log.is_updated ? 'Mis à jour' : 'En attente'}
+                        </span>
                     </div>
                     
-                    <div class="d-flex align-items-center gap-1 flex-grow-1">
-                        <label class="small text-secondary fw-semibold mb-0 text-nowrap">Extra (h):</label>
-                        <input type="number" step="0.5" min="0" class="form-control form-control-sm" id="extra_${log.log_id}" value="${log.extra_hours}" required>
+                    <div class="row g-2 text-muted small mb-3">
+                        <div class="col-6 col-md-3"><strong>Tél:</strong> ${log.phone || '-'}</div>
+                        <div class="col-6 col-md-3"><strong>Lieu:</strong> ${log.direction || '-'}</div>
+                        <div class="col-6 col-md-3"><strong>Travail:</strong> ${log.description || '-'}</div>
+                        <div class="col-6 col-md-3"><strong>Outils:</strong> ${log.tools || '-'}</div>
                     </div>
+                    
+                    <form onsubmit="submitTaskHours(event, '${log.log_id}')" class="bg-white p-2 rounded border d-flex align-items-center gap-2">
+                        <div class="d-flex align-items-center gap-1 flex-grow-1">
+                            <label class="small text-secondary fw-semibold mb-0 text-nowrap">Norm (h):</label>
+                            <input type="number" step="0.5" min="0" class="form-control form-control-sm" id="norm_${log.log_id}" value="${log.normal_hours}" required>
+                        </div>
+                        
+                        <div class="d-flex align-items-center gap-1 flex-grow-1">
+                            <label class="small text-secondary fw-semibold mb-0 text-nowrap">Extra (h):</label>
+                            <input type="number" step="0.5" min="0" class="form-control form-control-sm" id="extra_${log.log_id}" value="${log.extra_hours}" required>
+                        </div>
 
-                    <button type="submit" class="btn btn-sm btn-primary px-3 text-nowrap ms-auto">
-                        <i class="bi bi-check-lg"></i> Valider
-                    </button>
-                </form>
-            </div>`;
-        });
+                        <button type="submit" class="btn btn-sm btn-primary px-3 text-nowrap ms-auto">
+                            <i class="bi bi-check-lg"></i> Valider
+                        </button>
+                    </form>
+                </div>`;
+            });
+        }
+        
+        container.innerHTML = html;
+        const modal = new bootstrap.Modal(document.getElementById('dayTasksModal'));
+        modal.show();
     }
-    
-    container.innerHTML = html;
-    const modal = new bootstrap.Modal(document.getElementById('dayTasksModal'));
-    modal.show();
-}
 
     function submitTaskHours(event, logId) {
         event.preventDefault();
@@ -489,13 +559,60 @@
         });
     }
 
+    function selectWorker(workerId, color) {
+        document.querySelectorAll('.worker-pill').forEach(el => el.classList.remove('active'));
+        const activePill = document.getElementById(`pill-${workerId}`);
+        if (activePill) activePill.classList.add('active');
+
+        currentSelectedWorkerId = workerId;
+
+        if (calendar) {
+            calendar.refetchEvents();
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", function() {
-        const avatars = document.querySelectorAll('.worker-avatar');
-        avatars.forEach((avatar, index) => {
-            if (!avatar.style.backgroundColor || avatar.style.backgroundColor === 'rgb(13, 110, 253)') {
-                avatar.style.backgroundColor = getDistinctColor(index);
-            }
-        });
+        //const avatars = document.querySelectorAll('.worker-avatar');
+        //avatars.forEach((avatar, index) => {
+            //if (!avatar.style.backgroundColor || avatar.style.backgroundColor === 'rgb(13, 110, 253)') {
+                //avatar.style.backgroundColor = getDistinctColor(index);
+            //}
+        //});
+
+        const calendarEl = document.getElementById('workerCalendar');
+        if (calendarEl) {
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'fr',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: ''
+                },
+                buttonText: {
+                    today: "Aujourd'hui"
+                },
+                events: function(fetchInfo, successCallback, failureCallback) {
+                    if (!currentSelectedWorkerId) {
+                        successCallback([]);
+                        return;
+                    }
+                    fetch(`/api/worker_events/${currentSelectedWorkerId}`)
+                        .then(res => res.json())
+                        .then(data => successCallback(data))
+                        .catch(err => failureCallback(err));
+                }
+            });
+
+            calendar.render();
+            setTimeout(() => calendar.updateSize(), 100);
+        }
+
+        {% if travailleurs %}
+            const firstWorkerId = "{{ travailleurs[0].id }}";
+            const firstWorkerColor = "{{ travailleurs[0].color or '' }}";
+            selectWorker(firstWorkerId, firstWorkerColor);
+        {% endif %}
     });
 </script>
 {% endblock %}

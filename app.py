@@ -537,6 +537,46 @@ def update_worker():
     db.session.commit()
     return redirect(url_for('travailleurs'))
 
+@app.route('/worker-archive')  # Or keep '/archive' if replacing the old route completely
+def worker_archive():
+    workers = Worker.query.all()
+    
+    worker_activity_data = {}
+    for worker in workers:
+        worker_activity_data[worker.id] = {}
+        for log in worker.logs:
+            if log.date:
+                date_str = log.date.strftime('%Y-%m-%d') if isinstance(log.date, (date, datetime)) else str(log.date)
+                worker_activity_data[worker.id][date_str] = worker_activity_data[worker.id].get(date_str, 0) + 1
+
+    return render_template(
+        'archive.html',
+        workers=workers,
+        worker_activity_data=worker_activity_data
+    )
+
+@app.route('/api/worker_events/<int:worker_id>')
+def get_worker_events(worker_id):
+    worker = Worker.query.get_or_404(worker_id)
+    logs = WorkerLog.query.filter_by(worker_id=worker_id).all()
+    
+    # Palette of distinct colors for fallback
+    color_palette = ['#dc3545', '#198754', '#6f42c1', '#fd7e14', '#0d6efd', '#20c997', '#d63384']
+    fallback_color = color_palette[worker_id % len(color_palette)]
+    worker_color = worker.color if worker.color else fallback_color
+    
+    events = []
+    for log in logs:
+        events.append({
+            'id': log.id,
+            'title': f"{log.normal_hours}h Norm / {log.extra_hours}h Extra",
+            'start': str(log.date),
+            'color': worker_color,
+            'textColor': '#ffffff'
+        })
+        
+    return jsonify(events)
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
