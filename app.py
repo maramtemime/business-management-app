@@ -84,6 +84,14 @@ class WorkerTaskLog(db.Model):
     def activities(self, value):
         self._activities = json.dumps(value)
 
+class WorkerPayment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    worker_id = db.Column(db.Integer, db.ForeignKey('worker.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+
+    worker = db.relationship('Worker', backref=db.backref('payments', lazy=True))
+
 def get_time_diff(task_date):
     """Return difference in days between task date and today"""
     try:
@@ -534,6 +542,9 @@ def update_worker():
     worker.pay_per_normal_hr = float(request.form.get('pay_per_normal_hr', 0))
     worker.pay_per_extra_hr = float(request.form.get('pay_per_extra_hr', 0))
     
+    # Recalculate total pay with updated rates
+    worker.total_pay = (worker.normal_hours * worker.pay_per_normal_hr) + (worker.extra_hours * worker.pay_per_extra_hr)
+    
     db.session.commit()
     return redirect(url_for('travailleurs'))
 
@@ -555,26 +566,90 @@ def worker_archive():
         worker_activity_data=worker_activity_data
     )
 
+
+@app.route('/pay_worker', methods=['POST'])
+def pay_worker():
+    worker_id = request.form.get('worker_id')
+    amount = float(request.form.get('amount', 0))
+    
+    if amount <= 0:
+        return jsonify({'success': False, 'error': 'Montant invalide'}), 400
+        
+    worker = Worker.query.get_or_404(worker_id)
+    payment = WorkerPayment(worker_id=worker.id, amount=amount, date=date.today())
+    db.session.add(payment)
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
 @app.route('/api/worker_events/<int:worker_id>')
 def get_worker_events(worker_id):
     worker = Worker.query.get_or_404(worker_id)
-    logs = WorkerLog.query.filter_by(worker_id=worker_id).all()
+    logs = WorkerTaskLog.query.filter_by(worker_id=worker_id).all()
+    payments = WorkerPayment.query.filter_by(worker_id=worker_id).all()
     
-    # Palette of distinct colors for fallback
+    # Get all workers ordered by ID to match Jinja2 template indexing (1-based)
+    all_workers = Worker.query.order_by(Worker.id).all()
+    worker_index = next((i for i, w in enumerate(all_workers) if w.id == worker_id), 0)
+    
     color_palette = ['#dc3545', '#198754', '#6f42c1', '#fd7e14', '#0d6efd', '#20c997', '#d63384']
-    fallback_color = color_palette[worker_id % len(color_palette)]
-    worker_color = worker.color if worker.color else fallback_color
+    worker_color = color_palette[worker_index % len(color_palette)]
     
     events = []
+    # Regular task hours
     for log in logs:
         events.append({
-            'id': log.id,
+            'id': f"log_{log.id}",
             'title': f"{log.normal_hours}h Norm / {log.extra_hours}h Extra",
             'start': str(log.date),
             'color': worker_color,
             'textColor': '#ffffff'
         })
         
+    # Payment Star markers
+    for pay in payments:
+        events.append({
+            'id': f"pay_{pay.id}",
+            'title': f"★ Payé: {pay.amount} DT",
+            'start': str(pay.date),
+            'color': worker_color,
+            'textColor': '#ffffff'
+        })
+        
+    return jsonify(events)
+
+@app.route('/api/all_worker_events')
+def get_all_worker_events():
+    all_workers = Worker.query.order_by(Worker.id).all()
+    color_palette = ['#dc3545', '#198754', '#6f42c1', '#fd7e14', '#0d6efd', '#20c997', '#d63384']
+    
+    events = []
+    
+    for index, worker in enumerate(all_workers):
+        worker_color = getattr(worker, 'color', None) or color_palette[index % len(color_palette)]
+        
+        # Add task hours
+        logs = WorkerTaskLog.query.filter_by(worker_id=worker.id).all()
+        for log in logs:
+            events.append({
+                'id': f"log_{log.id}",
+                'title': f"{worker.full_name}: {log.normal_hours}h Norm / {log.extra_hours}h Extra",
+                'start': str(log.date),
+                'color': worker_color,
+                'textColor': '#ffffff'
+            })
+            
+        # Add payment stars
+        payments = WorkerPayment.query.filter_by(worker_id=worker.id).all()
+        for pay in payments:
+            events.append({
+                'id': f"pay_{pay.id}",
+                'title': f"★ {worker.full_name} Payé: {pay.amount} DT",
+                'start': str(pay.date),
+                'color': worker_color,
+                'textColor': '#ffffff'
+            })
+            
     return jsonify(events)
 
 if __name__ == "__main__":
