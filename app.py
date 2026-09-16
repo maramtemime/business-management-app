@@ -38,8 +38,20 @@ class Worker(db.Model):
     extra_hours = db.Column(db.Float, default=0.0)
     total_pay = db.Column(db.Float, default=0.0)
     _activities = db.Column('activities', db.Text, default='{}')
+
+    @property
+    def activities(self):
+        try:
+            return json.loads(self._activities) if self._activities else {}
+        except Exception:
+            return {}
+
+    @activities.setter
+    def activities(self, value):
+        self._activities = json.dumps(value)
+
     def get_logs_for_day(self, day_name):
-        """Returns WorkerTaskLog entries matching a specific French day of the week."""
+        """Returns WorkerTaskLog entries matching a specific day ONLY for the current week."""
         french_days = {
             'Lundi': 0, 'Mardi': 1, 'Mercredi': 2, 
             'Jeudi': 3, 'Vendredi': 4, 'Samedi': 5, 'Dimanche': 6
@@ -49,12 +61,18 @@ class Worker(db.Model):
         if target_weekday is None:
             return []
 
+        # Calculate current week boundaries (Monday to Sunday)
+        today = date.today()
+        start_of_week = today - timedelta(days=today.weekday())
+        end_of_week = start_of_week + timedelta(days=6)
+
         matched_logs = []
         for log in self.task_logs:
             try:
-                # Parses stored date_value ("YYYY-MM-DD")
                 log_date = datetime.strptime(log.date, "%Y-%m-%d").date()
-                if log_date.weekday() == target_weekday:
+                
+                # Check if log falls within the current week AND matches the day
+                if start_of_week <= log_date <= end_of_week and log_date.weekday() == target_weekday:
                     matched_logs.append(log)
             except (ValueError, TypeError):
                 continue
@@ -72,17 +90,6 @@ class WorkerTaskLog(db.Model):
 
     worker = db.relationship('Worker', backref=db.backref('task_logs', lazy=True))
     task = db.relationship('Task', backref=db.backref('worker_logs', lazy=True))
-
-    @property
-    def activities(self):
-        try:
-            return json.loads(self._activities) if self._activities else {}
-        except Exception:
-            return {}
-
-    @activities.setter
-    def activities(self, value):
-        self._activities = json.dumps(value)
 
 class WorkerPayment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -242,14 +249,14 @@ def add_task():
                     date=date_value,
                     normal_hours=0.0,
                     extra_hours=0.0,
-                    is_updated=False  # Unfilled state (Yellow)
+                    is_updated=False
                 )
                 db.session.add(log)
 
         db.session.commit()
         return jsonify({"success": True})
 
-    except Exception as e:
+    except Exception:
         db.session.rollback()
         return jsonify({"success": False, "errors": ["Une erreur serveur est survenue."]}), 500
 
@@ -299,22 +306,41 @@ def update_task():
 
             task.date = date_value
             task.note = request.form.get("note", "").strip()
-            
-            # Fixed status update logic
-            if is_done_checked:
-                task.done = True
-            elif task_date_obj < date.today():
-                task.done = True
-            else:
-                task.done = False
-                
+            task.done = is_done_checked
+
+            # --- WORKER & LOG SYNC ---
+            selected_workers = request.form.getlist("workers")
+            task.workers = ",".join(selected_workers) if selected_workers else ""
+
+            existing_logs = WorkerTaskLog.query.filter_by(task_id=task.id).all()
+            existing_worker_ids = {log.worker_id: log for log in existing_logs}
+
+            current_assigned_ids = set()
+            for worker_name in selected_workers:
+                worker = Worker.query.filter_by(full_name=worker_name).first()
+                if worker:
+                    current_assigned_ids.add(worker.id)
+                    if worker.id not in existing_worker_ids:
+                        new_log = WorkerTaskLog(
+                            worker_id=worker.id,
+                            task_id=task.id,
+                            date=date_value,
+                            normal_hours=0.0,
+                            extra_hours=0.0,
+                            is_updated=False
+                        )
+                        db.session.add(new_log)
+                    else:
+                        existing_worker_ids[worker.id].date = date_value
+
+            for worker_id, log in existing_worker_ids.items():
+                if worker_id not in current_assigned_ids:
+                    db.session.delete(log)
+                    
             db.session.commit()
                 
     except (ValueError, TypeError):
         db.session.rollback()
-
-    selected_workers = request.form.getlist("workers")
-    task.workers = ",".join(selected_workers) if selected_workers else ""
 
     return redirect(url_for("dashboard"))
 
@@ -416,8 +442,7 @@ def travailleurs():
             pay_per_extra_hr=pay_per_extra_hr,
             normal_hours=0.0,
             extra_hours=0.0,
-            total_pay=0.0,
-            
+            total_pay=0.0
         )
         db.session.add(new_worker)
         db.session.commit()
@@ -426,7 +451,6 @@ def travailleurs():
     travailleurs = Worker.query.all()
     days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 
-    # Pre-build logs data structure
     worker_logs_data = {}
     for worker in travailleurs:
         worker_logs_data[worker.id] = {}
@@ -456,8 +480,6 @@ def travailleurs():
         worker_logs_data=worker_logs_data
     )
 
-
-
 @app.route("/update_worker_hours", methods=["POST"])
 def update_worker_hours():
     log_id = request.form.get("log_id")
@@ -471,12 +493,10 @@ def update_worker_hours():
     if not log:
         return jsonify({"success": False, "error": "Log introuvable."}), 404
 
-    # Update log entry
     log.normal_hours = norm
     log.extra_hours = extra
-    log.is_updated = True  # Flips status to Green
+    log.is_updated = True 
 
-    # Recalculate global worker totals
     worker = log.worker
     all_logs = WorkerTaskLog.query.filter_by(worker_id=worker.id).all()
     
@@ -498,12 +518,11 @@ def get_archive_events():
     
     events = []
     for task in archived_tasks:
-        # Determine status color: Green for completed, Red for canceled
         is_canceled = task.canceled
         events.append({
             "id": task.id,
             "title": task.client_name,
-            "start": task.date,  # Expected format YYYY-MM-DD
+            "start": task.date,
             "display": "list-item",
             "color": "#dc3545" if is_canceled else "#198754",
             "extendedProps": {
@@ -512,12 +531,8 @@ def get_archive_events():
         })
     return jsonify(events)
 
-# app.py
 @app.route("/api/task/<int:task_id>/toggle_tool", methods=["POST"])
 def toggle_tool(task_id):
-    data = request.json
-    tool_name = data.get("tool_name")
-    # Update your task tools status in database here
     db.session.commit()
     return jsonify({"success": True})
 
@@ -542,30 +557,27 @@ def update_worker():
     worker.pay_per_normal_hr = float(request.form.get('pay_per_normal_hr', 0))
     worker.pay_per_extra_hr = float(request.form.get('pay_per_extra_hr', 0))
     
-    # Recalculate total pay with updated rates
     worker.total_pay = (worker.normal_hours * worker.pay_per_normal_hr) + (worker.extra_hours * worker.pay_per_extra_hr)
     
     db.session.commit()
     return redirect(url_for('travailleurs'))
 
-@app.route('/worker-archive')  # Or keep '/archive' if replacing the old route completely
+@app.route('/worker-archive')
 def worker_archive():
     workers = Worker.query.all()
     
     worker_activity_data = {}
     for worker in workers:
         worker_activity_data[worker.id] = {}
-        for log in worker.logs:
+        for log in worker.task_logs:
             if log.date:
-                date_str = log.date.strftime('%Y-%m-%d') if isinstance(log.date, (date, datetime)) else str(log.date)
-                worker_activity_data[worker.id][date_str] = worker_activity_data[worker.id].get(date_str, 0) + 1
+                worker_activity_data[worker.id][log.date] = worker_activity_data[worker.id].get(log.date, 0) + 1
 
     return render_template(
         'archive.html',
         workers=workers,
         worker_activity_data=worker_activity_data
     )
-
 
 @app.route('/pay_worker', methods=['POST'])
 def pay_worker():
@@ -588,7 +600,6 @@ def get_worker_events(worker_id):
     logs = WorkerTaskLog.query.filter_by(worker_id=worker_id).all()
     payments = WorkerPayment.query.filter_by(worker_id=worker_id).all()
     
-    # Get all workers ordered by ID to match Jinja2 template indexing (1-based)
     all_workers = Worker.query.order_by(Worker.id).all()
     worker_index = next((i for i, w in enumerate(all_workers) if w.id == worker_id), 0)
     
@@ -596,7 +607,6 @@ def get_worker_events(worker_id):
     worker_color = color_palette[worker_index % len(color_palette)]
     
     events = []
-    # Regular task hours
     for log in logs:
         events.append({
             'id': f"log_{log.id}",
@@ -606,7 +616,6 @@ def get_worker_events(worker_id):
             'textColor': '#ffffff'
         })
         
-    # Payment Star markers
     for pay in payments:
         events.append({
             'id': f"pay_{pay.id}",
@@ -628,7 +637,6 @@ def get_all_worker_events():
     for index, worker in enumerate(all_workers):
         worker_color = getattr(worker, 'color', None) or color_palette[index % len(color_palette)]
         
-        # Add task hours
         logs = WorkerTaskLog.query.filter_by(worker_id=worker.id).all()
         for log in logs:
             events.append({
@@ -639,7 +647,6 @@ def get_all_worker_events():
                 'textColor': '#ffffff'
             })
             
-        # Add payment stars
         payments = WorkerPayment.query.filter_by(worker_id=worker.id).all()
         for pay in payments:
             events.append({
@@ -651,6 +658,31 @@ def get_all_worker_events():
             })
             
     return jsonify(events)
+
+@app.route('/api/payment_details/<int:payment_id>')
+def get_payment_details(payment_id):
+    payment = WorkerPayment.query.get_or_404(payment_id)
+    worker = payment.worker
+
+    subsequent_payments = WorkerPayment.query.filter(
+        WorkerPayment.worker_id == worker.id,
+        WorkerPayment.id > payment.id
+    ).all()
+    sum_subsequent = sum(p.amount for p in subsequent_payments)
+
+    total_paid_all_time = sum(p.amount for p in worker.payments)
+    current_remaining = worker.total_pay - total_paid_all_time
+    
+    remaining_after_payment = current_remaining + sum_subsequent
+    amount_before_paying = remaining_after_payment + payment.amount
+
+    return jsonify({
+        "worker_name": worker.full_name,
+        "payment_date": payment.date.strftime("%d/%m/%Y"),
+        "amount_paid": payment.amount,
+        "amount_before_paying": amount_before_paying,
+        "remaining_after_payment": remaining_after_payment
+    })
 
 if __name__ == "__main__":
     with app.app_context():

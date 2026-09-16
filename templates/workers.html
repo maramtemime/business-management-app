@@ -426,6 +426,41 @@
   </div>
 </div>
 
+<!-- Payment Details Breakdown Modal -->
+<div class="modal fade" id="paymentDetailsModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4 border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold" id="payDetailsWorkerName">Détails du Paiement</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="card bg-light border-0 p-3 mb-3 rounded-3">
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted small">Date du Paiement:</span>
+            <strong id="payDetailsDate">--/--/----</strong>
+          </div>
+          <hr class="my-2">
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted small">Reste Avant Paiement:</span>
+            <strong class="text-dark" id="payDetailsBefore">0 DT</strong>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted small">Montant Payé:</span>
+            <strong class="text-success fs-6" id="payDetailsAmount">0 DT</strong>
+          </div>
+          <hr class="my-2">
+          <div class="d-flex justify-content-between">
+            <span class="text-muted small fw-semibold">Reste Actuel à Payer:</span>
+            <strong class="text-danger fs-6" id="payDetailsRemaining">0 DT</strong>
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary w-100 fw-semibold" data-bs-dismiss="modal">Fermer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -433,6 +468,7 @@
     let calendar = null;
     let currentSelectedWorkerId = null;
     const workerActivityData = JSON.parse('{{ worker_activity_data | default({}) | tojson | safe }}');
+    const workerLogsData = JSON.parse('{{ worker_logs_data | tojson | safe }}');
 
     function getDistinctColor(index) {
         const hue = (index * 137.5) % 360;
@@ -502,25 +538,23 @@
     }
 
     function validatePhoneNumber(input, iconId = 'phoneErrorIcon', messageId = 'phoneErrorMessage') {
-    const errorIcon = document.getElementById(iconId);
-    const errorMessage = document.getElementById(messageId);
-    
-    const hasLetters = /[^\d]/.test(input.value);
+        const errorIcon = document.getElementById(iconId);
+        const errorMessage = document.getElementById(messageId);
+        
+        const hasLetters = /[^\d]/.test(input.value);
 
-    if (hasLetters) {
-        input.classList.add('is-invalid');
-        if (errorIcon) errorIcon.style.display = 'block';
-        if (errorMessage) errorMessage.style.display = 'block';
-        input.setCustomValidity('Invalid');
-    } else {
-        input.classList.remove('is-invalid');
-        if (errorIcon) errorIcon.style.display = 'none';
-        if (errorMessage) errorMessage.style.display = 'none';
-        input.setCustomValidity('');
+        if (hasLetters) {
+            input.classList.add('is-invalid');
+            if (errorIcon) errorIcon.style.display = 'block';
+            if (errorMessage) errorMessage.style.display = 'block';
+            input.setCustomValidity('Invalid');
+        } else {
+            input.classList.remove('is-invalid');
+            if (errorIcon) errorIcon.style.display = 'none';
+            if (errorMessage) errorMessage.style.display = 'none';
+            input.setCustomValidity('');
+        }
     }
-}
-
-    const workerLogsData = JSON.parse('{{ worker_logs_data | tojson | safe }}');
 
     function openDayTasksModal(workerId, dayName) {
         const logs = (workerLogsData[workerId] && workerLogsData[workerId][dayName]) || [];
@@ -598,42 +632,62 @@
         });
     }
 
-    document.addEventListener("DOMContentLoaded", function() {
-    const calendarEl = document.getElementById('workerCalendar');
-    if (calendarEl) {
-        calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth',
-            locale: 'fr',
-            headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: ''
-            },
-            buttonText: {
-                today: "Aujourd'hui"
-            },
-            events: function(fetchInfo, successCallback, failureCallback) {
-                // Fetch all worker events at once without filtering
-                fetch('/api/all_worker_events')
-                    .then(res => res.json())
-                    .then(data => successCallback(data))
-                    .catch(err => failureCallback(err));
+    function openPaymentModal(workerId, name, totalPay, totalPaid) {
+        const due = parseFloat(totalPay || 0);
+        const paid = parseFloat(totalPaid || 0);
+        const remaining = due - paid;
+
+        document.getElementById('payWorkerId').value = workerId;
+        document.getElementById('payModalWorkerName').innerText = `Payer - ${name}`;
+        document.getElementById('payTotalDue').innerText = `${due} DT`;
+        document.getElementById('payAlreadyPaid').innerText = `${paid} DT`;
+        document.getElementById('payRemaining').innerText = `${remaining} DT`;
+        document.getElementById('payAmountInput').value = remaining > 0 ? remaining : 0;
+
+        const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
+        modal.show();
+    }
+
+    function submitPayment(event) {
+        event.preventDefault();
+        const workerId = document.getElementById('payWorkerId').value;
+        const amount = document.getElementById('payAmountInput').value;
+
+        const formData = new FormData();
+        formData.append('worker_id', workerId);
+        formData.append('amount', amount);
+
+        fetch('/pay_worker', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.error || 'Erreur lors du paiement');
             }
         });
-
-        calendar.render();
-        setTimeout(() => calendar.updateSize(), 100);
     }
-});
+
+    function openPaymentDetailsModal(paymentId) {
+        fetch(`/api/payment_details/${paymentId}`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('payDetailsWorkerName').innerText = `Détails - ${data.worker_name}`;
+                document.getElementById('payDetailsDate').innerText = data.payment_date;
+                document.getElementById('payDetailsBefore').innerText = `${data.amount_before_paying} DT`;
+                document.getElementById('payDetailsAmount').innerText = `${data.amount_paid} DT`;
+                document.getElementById('payDetailsRemaining').innerText = `${data.remaining_after_payment} DT`;
+
+                const modal = new bootstrap.Modal(document.getElementById('paymentDetailsModal'));
+                modal.show();
+            })
+            .catch(err => console.error("Error fetching payment details:", err));
+    }
 
     document.addEventListener("DOMContentLoaded", function() {
-        //const avatars = document.querySelectorAll('.worker-avatar');
-        //avatars.forEach((avatar, index) => {
-            //if (!avatar.style.backgroundColor || avatar.style.backgroundColor === 'rgb(13, 110, 253)') {
-                //avatar.style.backgroundColor = getDistinctColor(index);
-            //}
-        //});
-
         const calendarEl = document.getElementById('workerCalendar');
         if (calendarEl) {
             calendar = new FullCalendar.Calendar(calendarEl, {
@@ -648,66 +702,22 @@
                     today: "Aujourd'hui"
                 },
                 events: function(fetchInfo, successCallback, failureCallback) {
-                    if (!currentSelectedWorkerId) {
-                        successCallback([]);
-                        return;
-                    }
-                    fetch(`/api/worker_events/${currentSelectedWorkerId}`)
+                    fetch('/api/all_worker_events')
                         .then(res => res.json())
                         .then(data => successCallback(data))
                         .catch(err => failureCallback(err));
+                },
+                eventClick: function(info) {
+                    if (info.event.id && info.event.id.startsWith("pay_")) {
+                        const paymentId = info.event.id.replace("pay_", "");
+                        openPaymentDetailsModal(paymentId);
+                    }
                 }
             });
 
             calendar.render();
             setTimeout(() => calendar.updateSize(), 100);
         }
-
-        {% if travailleurs %}
-            const firstWorkerId = "{{ travailleurs[0].id }}";
-            const firstWorkerColor = "{{ travailleurs[0].color or '' }}";
-            selectWorker(firstWorkerId, firstWorkerColor);
-        {% endif %}
     });
-
-    function openPaymentModal(workerId, name, totalPay, totalPaid) {
-    const due = parseFloat(totalPay || 0);
-    const paid = parseFloat(totalPaid || 0);
-    const remaining = due - paid;
-
-    document.getElementById('payWorkerId').value = workerId;
-    document.getElementById('payModalWorkerName').innerText = `Payer - ${name}`;
-    document.getElementById('payTotalDue').innerText = `${due} DT`;
-    document.getElementById('payAlreadyPaid').innerText = `${paid} DT`;
-    document.getElementById('payRemaining').innerText = `${remaining} DT`;
-    document.getElementById('payAmountInput').value = remaining > 0 ? remaining : 0;
-
-    const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
-    modal.show();
-}
-
-function submitPayment(event) {
-    event.preventDefault();
-    const workerId = document.getElementById('payWorkerId').value;
-    const amount = document.getElementById('payAmountInput').value;
-
-    const formData = new FormData();
-    formData.append('worker_id', workerId);
-    formData.append('amount', amount);
-
-    fetch('/pay_worker', {
-        method: 'POST',
-        body: formData
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.error || 'Erreur lors du paiement');
-        }
-    });
-}
-
 </script>
 {% endblock %}
