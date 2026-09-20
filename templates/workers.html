@@ -161,15 +161,16 @@
     {% for worker in travailleurs %}
     <!-- Worker Feed Item -->
     <div class="card border rounded-3 p-3 mb-3 shadow-sm bg-white" 
-         ondblclick="openWorker('{{ worker.id }}')" 
+         ondblclick="openWorkerModal('{{ worker.id }}')" 
          style="cursor: pointer;">
         <!-- Main Header Row: Avatar + Name on Top + Details below -->
         <div class="d-flex align-items-center gap-3">
             <!-- Initials Avatar Bubble -->
             <div class="worker-avatar" 
                 id="avatar-{{ worker.id }}"
-                style="background-color: {{ worker.color if worker.color else ['#dc3545', '#198754', '#6f42c1', '#fd7e14', '#0d6efd', '#20c997', '#d63384'][loop.index0 % 7] }};">
-                {{ (worker.full_name.split()[0][0] + (worker.full_name.split()[1][0] if worker.full_name.split()|length > 1 else '')) | upper }}
+                style="background-color: {{ worker.assigned_color }};">
+                {% set names = worker.full_name.strip().split() if worker.full_name else [] %}
+                {{ (names[0][0] + (names[1][0] if names|length > 1 else '')) | upper if names else 'W' }}
             </div>
 
             <!-- Details Block: Full Name Above Phone & Rates -->
@@ -184,7 +185,8 @@
                         {% set remaining = worker.total_pay - total_paid %}
                         <strong class="text-success">Reste À Payer:</strong> {{ remaining }} DT
                         <button type="button" class="btn btn-sm btn-outline-success py-0 px-2 rounded-pill" 
-                                onclick="event.stopPropagation(); openPaymentModal('{{ worker.id }}', '{{ worker.full_name }}', '{{ worker.total_pay }}', '{{ total_paid }}')" 
+                                onclick="event.stopPropagation(); openPaymentModal('{{ worker.id }}', {{ worker.full_name | tojson | forceescape }}, '{{ worker.total_pay }}', '{{ total_paid }}')" 
+                                ondblclick="event.stopPropagation();"
                                 title="Effectuer un paiement">
                             <i class="bi bi-cash-stack"></i> Payer
                         </button>
@@ -194,10 +196,15 @@
 
             <!-- Action Buttons -->
             <div class="d-flex align-items-center gap-2 ms-auto">
-                <button type="button" class="btn btn-sm btn-outline-primary rounded-circle" onclick="event.stopPropagation(); openWorker('{{ worker.id }}');" title="Modifier">
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-circle" 
+                        onclick="event.stopPropagation(); openWorkerModal('{{ worker.id }}');" 
+                        ondblclick="event.stopPropagation();"
+                        title="Modifier">
                     <i class="bi bi-pencil-fill"></i>
                 </button>
-                <button type="button" class="toggle-arrow border-0 p-2" onclick="event.stopPropagation(); toggleDetails('details-{{ worker.id }}', this)">
+                <button type="button" class="toggle-arrow border-0 p-2" 
+                        onclick="event.stopPropagation(); toggleDetails('details-{{ worker.id }}', this)"
+                        ondblclick="event.stopPropagation();">
                     <i class="bi bi-chevron-down fs-5"></i>
                 </button>
             </div>
@@ -245,7 +252,7 @@
 <div class="overlay" id="modalOverlay" onclick="closeAllWorkerModals()"></div>
 
 <!-- Add Worker Modal Box -->
-<div class="modal-box" id="workerModal">
+<div class="modal-box" id="workerModal" style="display: none;">
     <h5 class="fw-bold mb-4" style="color: #1a2c54;">Ajouter un Travailleur</h5>
     <form action="{{ url_for('travailleurs') }}" method="POST">
         <div class="mb-3">
@@ -267,10 +274,10 @@
             </div>
         </div>
         <div class="mb-3">
-            <input type="number" step="0.5" name="pay_per_normal_hr" class="form-control" placeholder="Prix / Heure Normale (DT)" required>
+            <input type="number" step="0.5" min="0" name="pay_per_normal_hr" class="form-control" placeholder="Prix / Heure Normale (DT)" required>
         </div>
         <div class="mb-3">
-            <input type="number" step="0.5" name="pay_per_extra_hr" class="form-control" placeholder="Prix / Heure Extra (DT)" required>
+            <input type="number" step="0.5" min="0" name="pay_per_extra_hr" class="form-control" placeholder="Prix / Heure Extra (DT)" required>
         </div>
         <div class="d-flex justify-content-end gap-2 mt-4">
             <button type="button" class="btn btn-light border px-4 rounded-3 fw-semibold" onclick="closeModal()">Annuler</button>
@@ -341,14 +348,19 @@
                 </div>
             </div>
 
-            <div class="mb-3">
+           <div class="mb-3">
                 <label class="form-label small fw-semibold">Prix / Heure Normale (DT)</label>
-                <input type="number" step="0.5" class="form-control" name="pay_per_normal_hr" id="edit_pay_normal" required>
+                <input type="number" step="0.5" min="0" class="form-control" name="pay_per_normal_hr" id="edit_pay_normal" required>
             </div>
 
             <div class="mb-3">
                 <label class="form-label small fw-semibold">Prix / Heure Extra (DT)</label>
-                <input type="number" step="0.5" class="form-control" name="pay_per_extra_hr" id="edit_pay_extra" required>
+                <input type="number" step="0.5" min="0" class="form-control" name="pay_per_extra_hr" id="edit_pay_extra" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Couleur du badge / événement</label>
+                <input type="color" class="form-control form-control-color w-100" name="color" id="edit_color" title="Choisir une couleur">
             </div>
             
             <div class="d-flex gap-2 mt-4">
@@ -380,8 +392,7 @@
         <i class="bi bi-calendar3 text-primary"></i> Calendrier Annuel des Travailleurs
     </h4>
 
-
-    <!-- Calendar View Card (Matches Archives style) -->
+    <!-- Calendar View Card -->
     <div class="card shadow-sm border-0 mb-4 rounded-3 p-3 bg-white">
         <div id="workerCalendar"></div>
     </div>
@@ -414,7 +425,7 @@
         <form id="paymentForm" onsubmit="submitPayment(event)">
           <input type="hidden" id="payWorkerId">
           <div class="mb-3">
-            <label class="form-label small fw-semibold">Montant Verse (DT)</label>
+            <label class="form-label small fw-semibold">Montant Versé (DT)</label>
             <input type="number" step="0.5" min="0.5" class="form-control" id="payAmountInput" required placeholder="0.00">
           </div>
           <button type="submit" class="btn btn-success w-100 fw-semibold py-2">
@@ -470,11 +481,6 @@
     const workerActivityData = JSON.parse('{{ worker_activity_data | default({}) | tojson | safe }}');
     const workerLogsData = JSON.parse('{{ worker_logs_data | tojson | safe }}');
 
-    function getDistinctColor(index) {
-        const hue = (index * 137.5) % 360;
-        return `hsl(${hue}, 65%, 45%)`;
-    }
-
     function toggleDetails(rowId, buttonElem) {
         const row = document.getElementById(rowId);
         row.classList.toggle('show');
@@ -491,29 +497,36 @@
         document.getElementById('modalOverlay').style.display = 'none';
     }
 
-    function openWorker(workerId) {
-        if (!workerId) return;
-
+    function openWorkerModal(workerId) {
         fetch(`/get_worker/${workerId}`)
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById("viewWorkerName").innerText = data.full_name || "";
-                document.getElementById("viewWorkerPhone").innerText = data.phone_num || "---";
-                document.getElementById("viewPayNormal").innerText = `${data.pay_per_normal_hr} DT`;
-                document.getElementById("viewPayExtra").innerText = `${data.pay_per_extra_hr} DT`;
-
-                document.getElementById("edit_worker_id").value = data.id;
-                document.getElementById("edit_full_name").value = data.full_name || "";
-                document.getElementById("edit_phone_num").value = data.phone_num || "";
-                document.getElementById("edit_pay_normal").value = data.pay_per_normal_hr || 0;
-                document.getElementById("edit_pay_extra").value = data.pay_per_extra_hr || 0;
-
-                disableWorkerEditMode();
-
-                document.getElementById("modalOverlay").style.display = "block";
-                document.getElementById("workerEditModal").style.display = "block";
+            .then(response => {
+                if (!response.ok) throw new Error("Network response was not ok");
+                return response.json();
             })
-            .catch(error => console.error("Error fetching worker:", error));
+            .then(data => {
+                // Populate View Mode
+                document.getElementById('viewWorkerName').innerText = data.full_name;
+                document.getElementById('viewWorkerPhone').innerText = data.phone_num || '---';
+                document.getElementById('viewPayNormal').innerText = `${data.pay_per_normal_hr} DT`;
+                document.getElementById('viewPayExtra').innerText = `${data.pay_per_extra_hr} DT`;
+
+                // Populate Edit Mode Form
+                document.getElementById('edit_worker_id').value = data.id;
+                document.getElementById('edit_full_name').value = data.full_name;
+                document.getElementById('edit_phone_num').value = data.phone_num || '';
+                document.getElementById('edit_pay_normal').value = data.pay_per_normal_hr;
+                document.getElementById('edit_pay_extra').value = data.pay_per_extra_hr;
+                document.getElementById('edit_color').value = data.color || '#0d6efd';
+
+                // Display Modal in View Mode by Default
+                disableWorkerEditMode();
+                document.getElementById('workerEditModal').style.display = 'block';
+                document.getElementById('modalOverlay').style.display = 'block';
+            })
+            .catch(err => {
+                console.error("Error loading worker details:", err);
+                alert("Could not load worker details.");
+            });
     }
 
     function enableWorkerEditMode() {
@@ -606,7 +619,8 @@
         }
         
         container.innerHTML = html;
-        const modal = new bootstrap.Modal(document.getElementById('dayTasksModal'));
+        const dayModalEl = document.getElementById('dayTasksModal');
+        const modal = bootstrap.Modal.getInstance(dayModalEl) || new bootstrap.Modal(dayModalEl);
         modal.show();
     }
 
@@ -628,7 +642,13 @@
         .then(data => {
             if(data.success) {
                 location.reload();
+            } else {
+                alert(data.error || "Failed to update hours.");
             }
+        })
+        .catch(err => {
+            console.error("Error submitting task hours:", err);
+            alert("Server connection error.");
         });
     }
 
@@ -644,7 +664,8 @@
         document.getElementById('payRemaining').innerText = `${remaining} DT`;
         document.getElementById('payAmountInput').value = remaining > 0 ? remaining : 0;
 
-        const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
+        const payModalEl = document.getElementById('paymentModal');
+        const modal = bootstrap.Modal.getInstance(payModalEl) || new bootstrap.Modal(payModalEl);
         modal.show();
     }
 
@@ -668,12 +689,19 @@
             } else {
                 alert(data.error || 'Erreur lors du paiement');
             }
+        })
+        .catch(err => {
+            console.error("Error submitting payment:", err);
+            alert("Server connection error.");
         });
     }
 
     function openPaymentDetailsModal(paymentId) {
         fetch(`/api/payment_details/${paymentId}`)
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error("Network response was not ok");
+                return res.json();
+            })
             .then(data => {
                 document.getElementById('payDetailsWorkerName').innerText = `Détails - ${data.worker_name}`;
                 document.getElementById('payDetailsDate').innerText = data.payment_date;
@@ -681,10 +709,14 @@
                 document.getElementById('payDetailsAmount').innerText = `${data.amount_paid} DT`;
                 document.getElementById('payDetailsRemaining').innerText = `${data.remaining_after_payment} DT`;
 
-                const modal = new bootstrap.Modal(document.getElementById('paymentDetailsModal'));
+                const detailsModalEl = document.getElementById('paymentDetailsModal');
+                const modal = bootstrap.Modal.getInstance(detailsModalEl) || new bootstrap.Modal(detailsModalEl);
                 modal.show();
             })
-            .catch(err => console.error("Error fetching payment details:", err));
+            .catch(err => {
+                console.error("Error fetching payment details:", err);
+                alert("Could not load payment details.");
+            });
     }
 
     document.addEventListener("DOMContentLoaded", function() {
@@ -693,6 +725,7 @@
             calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 locale: 'fr',
+                displayEventTime: false,
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',

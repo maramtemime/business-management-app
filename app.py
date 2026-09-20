@@ -4,6 +4,7 @@ from datetime import datetime, date, timedelta
 from sqlalchemy import or_ 
 import json
 import calendar
+import colorsys
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_session" 
@@ -15,6 +16,8 @@ db = SQLAlchemy(app)
 
 # --- DATABASE MODELS ---
 class Task(db.Model):
+    __tablename__ = 'task'
+
     id = db.Column(db.Integer, primary_key=True)
     client_name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(20), nullable=False)
@@ -22,22 +25,45 @@ class Task(db.Model):
     description = db.Column(db.Text, nullable=False)
     tools = db.Column(db.Text, nullable=True)
     invoice = db.Column(db.Float, default=0.0)
-    date = db.Column(db.String(10), nullable=False)
+    
+    date = db.Column(db.Date, nullable=False, default=date.today)
+    
     done = db.Column(db.Boolean, default=False)
     canceled = db.Column(db.Boolean, default=False)
     note = db.Column(db.Text, nullable=True)
-    workers = db.Column(db.Text, nullable=True)
+
+    worker_logs = db.relationship('WorkerTaskLog', backref='task', lazy=True, cascade="all, delete-orphan")
+
+    @property
+    def assigned_workers(self):
+        return [log.worker for log in self.worker_logs if log.worker]
 
 class Worker(db.Model):
+    __tablename__ = 'worker'
+
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(100), nullable=False)
     phone_num = db.Column(db.String(20), nullable=False)
     pay_per_normal_hr = db.Column(db.Float, default=0.0)
     pay_per_extra_hr = db.Column(db.Float, default=0.0)
-    normal_hours = db.Column(db.Float, default=0.0)
-    extra_hours = db.Column(db.Float, default=0.0)
-    total_pay = db.Column(db.Float, default=0.0)
+    color = db.Column(db.String(20), nullable=True)
     _activities = db.Column('activities', db.Text, default='{}')
+
+    task_logs = db.relationship('WorkerTaskLog', backref='worker', lazy=True, cascade="all, delete-orphan")
+    payments = db.relationship('WorkerPayment', backref='worker', lazy=True, cascade="all, delete-orphan")
+
+    @property
+    def assigned_color(self):
+        if self.color:
+            return self.color
+
+        palette = ['#dc3545', '#198754', '#6f42c1', '#fd7e14', '#0d6efd', '#20c997', '#d63384']
+        if self.id and self.id <= len(palette):
+            return palette[self.id - 1]
+
+        hue = (self.id * 137.508) % 360
+        rgb = colorsys.hls_to_rgb(hue / 360.0, 0.45, 0.65)
+        return f"#{int(rgb[0]*255):02x}{int(rgb[1]*255):02x}{int(rgb[2]*255):02x}"
 
     @property
     def activities(self):
@@ -50,8 +76,17 @@ class Worker(db.Model):
     def activities(self, value):
         self._activities = json.dumps(value)
 
+    @property
+    def total_pay(self):
+        """Calculates gross total earnings dynamically using historically applied rates."""
+        gross = sum(
+            (log.normal_hours * log.applied_normal_rate) + 
+            (log.extra_hours * log.applied_extra_rate)
+            for log in self.task_logs
+        )
+        return round(gross, 2)
+
     def get_logs_for_day(self, day_name):
-        """Returns WorkerTaskLog entries matching a specific day ONLY for the current week."""
         french_days = {
             'Lundi': 0, 'Mardi': 1, 'Mercredi': 2, 
             'Jeudi': 3, 'Vendredi': 4, 'Samedi': 5, 'Dimanche': 6
@@ -61,53 +96,44 @@ class Worker(db.Model):
         if target_weekday is None:
             return []
 
-        # Calculate current week boundaries (Monday to Sunday)
         today = date.today()
         start_of_week = today - timedelta(days=today.weekday())
         end_of_week = start_of_week + timedelta(days=6)
 
         matched_logs = []
         for log in self.task_logs:
-            try:
-                log_date = datetime.strptime(log.date, "%Y-%m-%d").date()
-                
-                # Check if log falls within the current week AND matches the day
-                if start_of_week <= log_date <= end_of_week and log_date.weekday() == target_weekday:
-                    matched_logs.append(log)
-            except (ValueError, TypeError):
-                continue
+            if log.date and start_of_week <= log.date <= end_of_week and log.date.weekday() == target_weekday:
+                matched_logs.append(log)
                 
         return matched_logs
-    
+
 class WorkerTaskLog(db.Model):
+    __tablename__ = 'worker_task_log'
+
     id = db.Column(db.Integer, primary_key=True)
     worker_id = db.Column(db.Integer, db.ForeignKey('worker.id'), nullable=False)
     task_id = db.Column(db.Integer, db.ForeignKey('task.id'), nullable=False)
-    date = db.Column(db.String(10), nullable=False) # e.g. "2026-08-17"
+
+    date = db.Column(db.Date, nullable=False, default=date.today)
+
     normal_hours = db.Column(db.Float, default=0.0)
     extra_hours = db.Column(db.Float, default=0.0)
-    is_updated = db.Column(db.Boolean, default=False) # False = Yellow, True = Green
+    is_updated = db.Column(db.Boolean, default=False)
 
-    worker = db.relationship('Worker', backref=db.backref('task_logs', lazy=True))
-    task = db.relationship('Task', backref=db.backref('worker_logs', lazy=True))
+    applied_normal_rate = db.Column(db.Float, nullable=False, default=0.0)
+    applied_extra_rate = db.Column(db.Float, nullable=False, default=0.0)
 
 class WorkerPayment(db.Model):
+    __tablename__ = 'worker_payment'
+    
     id = db.Column(db.Integer, primary_key=True)
     worker_id = db.Column(db.Integer, db.ForeignKey('worker.id'), nullable=False)
     amount = db.Column(db.Float, nullable=False)
-    date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    date = db.Column(db.Date, nullable=False, default=date.today)
+    notes = db.Column(db.Text, nullable=True)
 
-    worker = db.relationship('Worker', backref=db.backref('payments', lazy=True))
 
-def get_time_diff(task_date):
-    """Return difference in days between task date and today"""
-    try:
-        task_date_obj = datetime.strptime(task_date, "%Y-%m-%d").date()
-        today = date.today()
-        return (task_date_obj - today).days
-    except ValueError:
-        return 0 
-
+# --- ROUTES ---
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -120,10 +146,10 @@ def login():
 
 @app.route("/dashboard")
 def dashboard():
-    today = str(date.today())
-    today_display = date.today().strftime("%d/%m/%Y")
+    today_date = date.today()
+    today_display = today_date.strftime("%d/%m/%Y")
     
-    start_week = date.today() - timedelta(days=date.today().weekday())
+    start_week = today_date - timedelta(days=today_date.weekday())
     end_week = start_week + timedelta(days=6)
     
     french_months = {
@@ -138,46 +164,27 @@ def dashboard():
     active_tasks = Task.query.filter_by(canceled=False).all()
     
     for t in active_tasks:
-        t.time_diff = get_time_diff(t.date)
-        try:
-            date_obj = datetime.strptime(t.date, "%Y-%m-%d")
-            t.date_display = date_obj.strftime("%d/%m/%Y")
-        except ValueError:
-            t.date_display = t.date
+        t.time_diff = (t.date - today_date).days if t.date else 0
+        t.date_display = t.date.strftime("%d/%m/%Y") if t.date else ""
 
-    today_tasks = [t for t in active_tasks if t.date == today]
+    today_tasks = [t for t in active_tasks if t.date == today_date]
     pending_tasks = [t for t in active_tasks if not t.done]
-    
-    done_week_tasks = []
-    for t in active_tasks:
-        if t.done:
-            try:
-                task_d = datetime.strptime(t.date, "%Y-%m-%d").date()
-                if task_d >= start_week:
-                    done_week_tasks.append(t)
-            except ValueError:
-                continue
+    done_week_tasks = [t for t in active_tasks if t.done and t.date and t.date >= start_week]
 
     errors = request.args.getlist("errors")
-
-    count_today = len(today_tasks)
-    count_pending = len(pending_tasks)
-    count_done = len(done_week_tasks)
-
-    all_workers = Worker.query.all()
 
     return render_template(
         "dashboard.html",
         today_tasks=today_tasks,
         pending_tasks=pending_tasks,
         done_week_tasks=done_week_tasks,
-        count_today=count_today,
-        count_pending=count_pending,
-        count_done=count_done,
+        count_today=len(today_tasks),
+        count_pending=len(pending_tasks),
+        count_done=len(done_week_tasks),
         today=today_display,
         week_range=week_range_string,
         errors=errors,
-        all_workers=all_workers
+        all_workers=Worker.query.all()
     )
 
 @app.route("/add_task", methods=["POST"])
@@ -191,7 +198,6 @@ def add_task():
     date_value = request.form.get("date", "").strip()
     note = request.form.get("note", "").strip()
     selected_workers = request.form.getlist("workers") 
-    workers_str = ",".join(selected_workers) if selected_workers else ""
 
     errors = []
 
@@ -220,8 +226,6 @@ def add_task():
             "phone_error": "Le numéro de téléphone doit contenir uniquement des chiffres." in errors
         }), 400
 
-    is_past_date = task_date_obj < date.today()
-
     new_task = Task(
         client_name=client_name,
         phone=phone,
@@ -229,26 +233,30 @@ def add_task():
         description=description,
         tools=tools,
         invoice=invoice,
-        date=date_value, 
-        done=True if is_past_date else False, 
-        note=note,
-        workers=workers_str
+        date=task_date_obj,
+        done=(task_date_obj < date.today()), 
+        note=note
     )
 
     try:
         db.session.add(new_task)
-        db.session.commit()
+        db.session.flush()
 
-        # Automatically log tasks for each assigned worker
-        for worker_name in selected_workers:
-            worker = Worker.query.filter_by(full_name=worker_name).first()
+        for worker_identifier in selected_workers:
+            if worker_identifier.isdigit():
+                worker = Worker.query.get(int(worker_identifier))
+            else:
+                worker = Worker.query.filter_by(full_name=worker_identifier).first()
+
             if worker:
                 log = WorkerTaskLog(
                     worker_id=worker.id,
                     task_id=new_task.id,
-                    date=date_value,
-                    normal_hours=0.0,
-                    extra_hours=0.0,
+                    date=task_date_obj,
+                    normal_hours=float(request.form.get(f"norm_hrs_{worker.id}", 0.0)),
+                    extra_hours=float(request.form.get(f"extra_hrs_{worker.id}", 0.0)),
+                    applied_normal_rate=worker.pay_per_normal_hr,
+                    applied_extra_rate=worker.pay_per_extra_hr,
                     is_updated=False
                 )
                 db.session.add(log)
@@ -284,14 +292,10 @@ def update_task():
         
         if task:
             date_value = request.form.get("date", "").strip()
-            
             try:
                 task_date_obj = datetime.strptime(date_value, "%Y-%m-%d").date()
             except ValueError:
                 task_date_obj = date.today()
-                date_value = task_date_obj.strftime("%Y-%m-%d")
-
-            is_done_checked = (request.form.get("done") == "on")
 
             task.client_name = request.form.get("client_name", "").strip()
             task.phone = request.form.get("phone", "").strip()
@@ -304,39 +308,44 @@ def update_task():
             except ValueError:
                 task.invoice = 0.0
 
-            task.date = date_value
+            task.date = task_date_obj
             task.note = request.form.get("note", "").strip()
-            task.done = is_done_checked
+            task.done = (request.form.get("done") == "on")
 
-            # --- WORKER & LOG SYNC ---
             selected_workers = request.form.getlist("workers")
-            task.workers = ",".join(selected_workers) if selected_workers else ""
-
             existing_logs = WorkerTaskLog.query.filter_by(task_id=task.id).all()
             existing_worker_ids = {log.worker_id: log for log in existing_logs}
-
             current_assigned_ids = set()
-            for worker_name in selected_workers:
-                worker = Worker.query.filter_by(full_name=worker_name).first()
+
+            for worker_identifier in selected_workers:
+                if worker_identifier.isdigit():
+                    worker = Worker.query.get(int(worker_identifier))
+                else:
+                    worker = Worker.query.filter_by(full_name=worker_identifier).first()
+
                 if worker:
                     current_assigned_ids.add(worker.id)
                     if worker.id not in existing_worker_ids:
                         new_log = WorkerTaskLog(
                             worker_id=worker.id,
                             task_id=task.id,
-                            date=date_value,
+                            date=task_date_obj,
                             normal_hours=0.0,
                             extra_hours=0.0,
+                            applied_normal_rate=worker.pay_per_normal_hr,
+                            applied_extra_rate=worker.pay_per_extra_hr,
                             is_updated=False
                         )
                         db.session.add(new_log)
                     else:
-                        existing_worker_ids[worker.id].date = date_value
+                        existing_worker_ids[worker.id].date = task_date_obj
 
+            # Safely handle unassigned workers: preserve logs if work hours were already logged
             for worker_id, log in existing_worker_ids.items():
                 if worker_id not in current_assigned_ids:
-                    db.session.delete(log)
-                    
+                    if log.normal_hours == 0.0 and log.extra_hours == 0.0:
+                        db.session.delete(log)
+
             db.session.commit()
                 
     except (ValueError, TypeError):
@@ -348,7 +357,6 @@ def update_task():
 def get_task(index):
     task = Task.query.get(index)
     if task:
-        worker_list = task.workers.split(",") if task.workers else []
         return jsonify({
             "id": task.id,
             "client_name": task.client_name,
@@ -357,10 +365,10 @@ def get_task(index):
             "description": task.description,
             "tools": task.tools,
             "invoice": task.invoice,
-            "date": task.date,
+            "date": task.date.strftime("%Y-%m-%d") if task.date else "",
             "done": task.done,
             "note": task.note,
-            "workers": worker_list
+            "workers": [w.full_name for w in task.assigned_workers]
         })
     return jsonify({"error": "Task not found"}), 404
 
@@ -379,26 +387,26 @@ def check_date_tasks():
     if not date_val:
         return jsonify({"count": 0, "tasks": []})
     
-    tasks = Task.query.filter_by(date=date_val, canceled=False).all()
-    
-    task_list = []
-    for t in tasks:
-        task_list.append({
-            "id": t.id,
-            "client_name": t.client_name,
-            "phone": t.phone,
-            "direction": t.direction or "---",
-            "description": t.description,
-            "tools": t.tools or "---",
-            "invoice": t.invoice,
-            "done": t.done,
-            "note": t.note or "Aucune note."
-        })
+    try:
+        query_date = datetime.strptime(date_val, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"count": 0, "tasks": []})
 
-    return jsonify({
-        "count": len(task_list),
-        "tasks": task_list
-    })
+    tasks = Task.query.filter_by(date=query_date, canceled=False).all()
+    
+    task_list = [{
+        "id": t.id,
+        "client_name": t.client_name,
+        "phone": t.phone,
+        "direction": t.direction or "---",
+        "description": t.description,
+        "tools": t.tools or "---",
+        "invoice": t.invoice,
+        "done": t.done,
+        "note": t.note or "Aucune note."
+    } for t in tasks]
+
+    return jsonify({"count": len(task_list), "tasks": task_list})
 
 @app.route('/archive')
 def archive():
@@ -406,14 +414,11 @@ def archive():
         or_(Task.done == True, Task.canceled == True)
     ).order_by(Task.date.desc()).all()
     
-    total_completed = Task.query.filter_by(done=True, canceled=False).count()
-    total_canceled = Task.query.filter_by(canceled=True).count()
-
     return render_template(
         'archive.html',
         tasks=archived_tasks,
-        total_completed=total_completed,
-        total_canceled=total_canceled
+        total_completed=Task.query.filter_by(done=True, canceled=False).count(),
+        total_canceled=Task.query.filter_by(canceled=True).count()
     )
 
 @app.route('/delete_client/<int:client_id>', methods=['POST'])
@@ -439,10 +444,7 @@ def travailleurs():
             full_name=full_name,
             phone_num=phone_num,
             pay_per_normal_hr=pay_per_normal_hr,
-            pay_per_extra_hr=pay_per_extra_hr,
-            normal_hours=0.0,
-            extra_hours=0.0,
-            total_pay=0.0
+            pay_per_extra_hr=pay_per_extra_hr
         )
         db.session.add(new_worker)
         db.session.commit()
@@ -465,7 +467,7 @@ def travailleurs():
                     "description": log.task.description,
                     "tools": log.task.tools,
                     "invoice": log.task.invoice,
-                    "date": log.task.date,
+                    "date": log.task.date.strftime("%Y-%m-%d") if log.task.date else "",
                     "note": log.task.note,
                     "normal_hours": log.normal_hours,
                     "extra_hours": log.extra_hours,
@@ -493,19 +495,14 @@ def update_worker_hours():
     if not log:
         return jsonify({"success": False, "error": "Log introuvable."}), 404
 
+    # If log hasn't been locked yet, ensure it uses worker's latest rates before locking
+    if not log.is_updated and log.worker:
+        log.applied_normal_rate = log.worker.pay_per_normal_hr
+        log.applied_extra_rate = log.worker.pay_per_extra_hr
+
     log.normal_hours = norm
     log.extra_hours = extra
     log.is_updated = True 
-
-    worker = log.worker
-    all_logs = WorkerTaskLog.query.filter_by(worker_id=worker.id).all()
-    
-    total_norm = sum(l.normal_hours for l in all_logs)
-    total_extra = sum(l.extra_hours for l in all_logs)
-    
-    worker.normal_hours = total_norm
-    worker.extra_hours = total_extra
-    worker.total_pay = (total_norm * worker.pay_per_normal_hr) + (total_extra * worker.pay_per_extra_hr)
 
     db.session.commit()
     return jsonify({"success": True})
@@ -518,23 +515,17 @@ def get_archive_events():
     
     events = []
     for task in archived_tasks:
-        is_canceled = task.canceled
         events.append({
             "id": task.id,
             "title": task.client_name,
-            "start": task.date,
+            "start": task.date.strftime("%Y-%m-%d") if task.date else "",
             "display": "list-item",
-            "color": "#dc3545" if is_canceled else "#198754",
+            "color": "#dc3545" if task.canceled else "#198754",
             "extendedProps": {
-                "status": "canceled" if is_canceled else "completed"
+                "status": "canceled" if task.canceled else "completed"
             }
         })
     return jsonify(events)
-
-@app.route("/api/task/<int:task_id>/toggle_tool", methods=["POST"])
-def toggle_tool(task_id):
-    db.session.commit()
-    return jsonify({"success": True})
 
 @app.route('/get_worker/<int:worker_id>', methods=['GET'])
 def get_worker(worker_id):
@@ -544,7 +535,8 @@ def get_worker(worker_id):
         'full_name': worker.full_name,
         'phone_num': worker.phone_num or '',
         'pay_per_normal_hr': worker.pay_per_normal_hr,
-        'pay_per_extra_hr': worker.pay_per_extra_hr
+        'pay_per_extra_hr': worker.pay_per_extra_hr,
+        'color': worker.assigned_color
     })
 
 @app.route('/update_worker', methods=['POST'])
@@ -552,43 +544,63 @@ def update_worker():
     worker_id = request.form.get('worker_id')
     worker = Worker.query.get_or_404(worker_id)
     
-    worker.full_name = request.form.get('full_name')
-    worker.phone_num = request.form.get('phone_num')
-    worker.pay_per_normal_hr = float(request.form.get('pay_per_normal_hr', 0))
-    worker.pay_per_extra_hr = float(request.form.get('pay_per_extra_hr', 0))
+    worker.full_name = request.form.get('full_name', '').strip()
+    worker.phone_num = request.form.get('phone_num', '').strip()
     
-    worker.total_pay = (worker.normal_hours * worker.pay_per_normal_hr) + (worker.extra_hours * worker.pay_per_extra_hr)
-    
+    try:
+        new_norm = float(request.form.get('pay_per_normal_hr', 0))
+        new_extra = float(request.form.get('pay_per_extra_hr', 0))
+        
+        # Update worker's default rates
+        worker.pay_per_normal_hr = new_norm
+        worker.pay_per_extra_hr = new_extra
+
+        # Update applied rates for pending/un-finalized logs
+        for log in worker.task_logs:
+            if not log.is_updated:
+                log.applied_normal_rate = new_norm
+                log.applied_extra_rate = new_extra
+
+    except ValueError:
+        pass
+
+    manual_color = request.form.get('color', '').strip()
+    if manual_color:
+        worker.color = manual_color
+
     db.session.commit()
     return redirect(url_for('travailleurs'))
-
-@app.route('/worker-archive')
-def worker_archive():
-    workers = Worker.query.all()
-    
-    worker_activity_data = {}
-    for worker in workers:
-        worker_activity_data[worker.id] = {}
-        for log in worker.task_logs:
-            if log.date:
-                worker_activity_data[worker.id][log.date] = worker_activity_data[worker.id].get(log.date, 0) + 1
-
-    return render_template(
-        'archive.html',
-        workers=workers,
-        worker_activity_data=worker_activity_data
-    )
 
 @app.route('/pay_worker', methods=['POST'])
 def pay_worker():
     worker_id = request.form.get('worker_id')
-    amount = float(request.form.get('amount', 0))
+    
+    try:
+        amount = float(request.form.get('amount', 0))
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'Montant invalide'}), 400
     
     if amount <= 0:
         return jsonify({'success': False, 'error': 'Montant invalide'}), 400
         
     worker = Worker.query.get_or_404(worker_id)
-    payment = WorkerPayment(worker_id=worker.id, amount=amount, date=date.today())
+    
+    # Parse payment date if provided by form; default to today
+    payment_date_str = request.form.get('date', '').strip()
+    try:
+        payment_date = datetime.strptime(payment_date_str, "%Y-%m-%d").date() if payment_date_str else date.today()
+    except ValueError:
+        payment_date = date.today()
+
+    notes = request.form.get('notes', '').strip()
+
+    payment = WorkerPayment(
+        worker_id=worker.id,
+        amount=amount,
+        date=payment_date,
+        notes=notes if notes else None
+    )
+    
     db.session.add(payment)
     db.session.commit()
     
@@ -600,19 +612,13 @@ def get_worker_events(worker_id):
     logs = WorkerTaskLog.query.filter_by(worker_id=worker_id).all()
     payments = WorkerPayment.query.filter_by(worker_id=worker_id).all()
     
-    all_workers = Worker.query.order_by(Worker.id).all()
-    worker_index = next((i for i, w in enumerate(all_workers) if w.id == worker_id), 0)
-    
-    color_palette = ['#dc3545', '#198754', '#6f42c1', '#fd7e14', '#0d6efd', '#20c997', '#d63384']
-    worker_color = color_palette[worker_index % len(color_palette)]
-    
     events = []
     for log in logs:
         events.append({
             'id': f"log_{log.id}",
             'title': f"{log.normal_hours}h Norm / {log.extra_hours}h Extra",
-            'start': str(log.date),
-            'color': worker_color,
+            'start': log.date.strftime("%Y-%m-%d") if log.date else "",
+            'color': worker.assigned_color,
             'textColor': '#ffffff'
         })
         
@@ -620,8 +626,8 @@ def get_worker_events(worker_id):
         events.append({
             'id': f"pay_{pay.id}",
             'title': f"★ Payé: {pay.amount} DT",
-            'start': str(pay.date),
-            'color': worker_color,
+            'start': pay.date.strftime("%Y-%m-%d") if pay.date else "",
+            'color': worker.assigned_color,
             'textColor': '#ffffff'
         })
         
@@ -630,30 +636,24 @@ def get_worker_events(worker_id):
 @app.route('/api/all_worker_events')
 def get_all_worker_events():
     all_workers = Worker.query.order_by(Worker.id).all()
-    color_palette = ['#dc3545', '#198754', '#6f42c1', '#fd7e14', '#0d6efd', '#20c997', '#d63384']
-    
     events = []
     
-    for index, worker in enumerate(all_workers):
-        worker_color = getattr(worker, 'color', None) or color_palette[index % len(color_palette)]
-        
-        logs = WorkerTaskLog.query.filter_by(worker_id=worker.id).all()
-        for log in logs:
+    for worker in all_workers:
+        for log in worker.task_logs:
             events.append({
                 'id': f"log_{log.id}",
                 'title': f"{worker.full_name}: {log.normal_hours}h Norm / {log.extra_hours}h Extra",
-                'start': str(log.date),
-                'color': worker_color,
+                'start': log.date.strftime("%Y-%m-%d") if log.date else "",
+                'color': worker.assigned_color,
                 'textColor': '#ffffff'
             })
             
-        payments = WorkerPayment.query.filter_by(worker_id=worker.id).all()
-        for pay in payments:
+        for pay in worker.payments:
             events.append({
                 'id': f"pay_{pay.id}",
                 'title': f"★ {worker.full_name} Payé: {pay.amount} DT",
-                'start': str(pay.date),
-                'color': worker_color,
+                'start': pay.date.strftime("%Y-%m-%d") if pay.date else "",
+                'color': worker.assigned_color,
                 'textColor': '#ffffff'
             })
             
@@ -678,10 +678,10 @@ def get_payment_details(payment_id):
 
     return jsonify({
         "worker_name": worker.full_name,
-        "payment_date": payment.date.strftime("%d/%m/%Y"),
+        "payment_date": payment.date.strftime("%d/%m/%Y") if payment.date else "",
         "amount_paid": payment.amount,
-        "amount_before_paying": amount_before_paying,
-        "remaining_after_payment": remaining_after_payment
+        "amount_before_paying": round(amount_before_paying, 2),
+        "remaining_after_payment": round(remaining_after_payment, 2)
     })
 
 if __name__ == "__main__":
