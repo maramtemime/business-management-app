@@ -247,6 +247,7 @@
 
 <div class="overlay" id="globalOverlay" onclick="closeAllModals()"></div>
 
+<!-- Add Task Modal -->
 <div class="modal-box" id="modalBox" style="max-width: 420px;">
     <h5 class="mb-3">Ajouter une tâche</h5>
     
@@ -262,7 +263,26 @@
             </div>
             <input type="text" class="form-control mb-2" id="direction" name="direction" placeholder="Lieu / Direction">
             <input class="form-control mb-2" name="description" placeholder="Travail" required>
-            <input class="form-control mb-2" name="tools" placeholder="Outils">
+            
+            <!-- Dynamic Tools Section (Add) -->
+            <div class="mb-2">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="form-label small text-muted mb-0">Outils :</label>
+                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" onclick="addToolInput('addToolsContainer')">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                </div>
+                <div id="addToolsContainer">
+                    <div class="input-group mb-1 tool-input-group">
+                        <input class="form-control tool-input" placeholder="Outil">
+                        <button type="button" class="btn btn-outline-danger" onclick="removeToolInput(this)">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                <input type="hidden" name="tools" id="add_tools_hidden">
+            </div>
+
             <input class="form-control mb-2" name="invoice" type="number" step="0.01" placeholder="Facture (DT)" required>
             
             <div class="mb-2">
@@ -337,7 +357,6 @@
                 </div>
             </div>
 
-           
             <!-- Travailleurs Checkboxes -->
             <div class="mb-3">
                 <label class="form-label small text-muted mb-2 fw-semibold">Travailleurs (optionnel) :</label>
@@ -372,6 +391,7 @@
     </div>
 </div>
 
+<!-- View / Edit Task Modal -->
 <div class="modal-box" id="taskModal" style="max-width: 420px; display: none;">
     <div id="taskDetailView">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -398,7 +418,7 @@
         </div>
         <div class="mb-2">
             <span class="text-muted small d-block">Outils / Pièces</span>
-            <span id="viewTools" class="text-dark">---</span>
+            <div id="viewTools" class="text-dark">---</div>
         </div>
         <div class="row mb-2">
             <div class="col-6">
@@ -430,14 +450,26 @@
             </button>
         </div>
         
-        <form action="/update_task" method="POST">
+        <form id="editTaskForm" action="/update_task" method="POST">
             <input type="hidden" name="task_index" id="taskIndex">
             
             <input class="form-control mb-2" name="client_name" id="client_name" placeholder="Client" required>
             <input class="form-control mb-2" name="phone" id="phone" placeholder="Téléphone" required>
             <input type="text" class="form-control mb-2" id="edit_direction" name="direction" placeholder="Lieu / Direction">
             <input class="form-control mb-2" name="description" id="description" placeholder="Travail" required>
-            <input class="form-control mb-2" name="tools" id="tools" placeholder="Outils">
+            
+            <!-- Dynamic Tools Section (Edit) -->
+            <div class="mb-2">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="form-label small text-muted mb-0">Outils :</label>
+                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" onclick="addToolInput('editToolsContainer')">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                </div>
+                <div id="editToolsContainer"></div>
+                <input type="hidden" name="tools" id="edit_tools_hidden">
+            </div>
+
             <input class="form-control mb-2" name="invoice" id="invoice" type="number" step="0.01" required>
             <input class="form-control mb-2" name="date" id="date" type="text" placeholder="Sélectionner une date" required>
             
@@ -448,13 +480,29 @@
                 </div>
             </div>
             
+            <!-- Replace the old edit_workers select block with this: -->
             <div class="mb-2">
-                <label class="form-label small text-muted mb-1">Travailleurs :</label>
-                <select name="workers" id="edit_workers" class="form-select" multiple size="3">
-                    {% for worker in all_workers %}
-                        <option value="{{ worker.full_name }}">{{ worker.full_name }}</option>
-                    {% endfor %}
-                </select>
+                <label class="form-label small text-muted mb-1 fw-semibold">Travailleurs :</label>
+                <div class="border rounded p-2 bg-light" style="max-height: 120px; overflow-y: auto;">
+                    {% if all_workers %}
+                        {% for worker in all_workers %}
+                            <div class="form-check">
+                                <input 
+                                    class="form-check-input edit-worker-checkbox" 
+                                    type="checkbox" 
+                                    name="workers" 
+                                    value="{{ worker.full_name }}" 
+                                    id="edit_worker_{{ loop.index }}"
+                                >
+                                <label class="form-check-label small" for="edit_worker_{{ loop.index }}">
+                                    {{ worker.full_name }}
+                                </label>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <span class="text-muted small">Aucun travailleur enregistré</span>
+                    {% endif %}
+                </div>
             </div>
 
             <textarea class="form-control mb-2" name="note" id="note" placeholder="Notes..."></textarea>
@@ -492,6 +540,42 @@ let detailsDatePickerInstance;
 let currentSelectedDateTasks = [];
 let currentDateTaskIndex = 0;
 
+// Dynamic Outil Handlers
+function addToolInput(containerId, value = '') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const group = document.createElement('div');
+    group.className = 'input-group mb-1 tool-input-group';
+    group.innerHTML = `
+        <input class="form-control tool-input" placeholder="Outil" value="${value}">
+        <button type="button" class="btn btn-outline-danger" onclick="removeToolInput(this)">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    `;
+    container.appendChild(group);
+}
+
+function removeToolInput(btn) {
+    const container = btn.closest('.input-group').parentElement;
+    if (container.querySelectorAll('.tool-input-group').length > 1) {
+        btn.closest('.tool-input-group').remove();
+    } else {
+        const input = btn.closest('.tool-input-group').querySelector('.tool-input');
+        if (input) input.value = '';
+    }
+}
+
+function serializeTools(containerId, hiddenInputId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const inputs = container.querySelectorAll('.tool-input');
+    const tools = Array.from(inputs)
+        .map(i => i.value.trim())
+        .filter(v => v !== '');
+    document.getElementById(hiddenInputId).value = tools.join(', ');
+}
+
 document.addEventListener("DOMContentLoaded", function() {
     const flatpickrOptions = {
         locale: "fr",
@@ -518,7 +602,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // Phone Input Validation
     const phoneInput = document.getElementById("add_phone");
     const phoneError = document.getElementById("phoneError");
-    const addForm = phoneInput ? phoneInput.closest("form") : null;
+    const addForm = document.getElementById("addTaskForm");
 
     if (phoneInput) {
         phoneInput.addEventListener("blur", function () {
@@ -543,6 +627,8 @@ document.addEventListener("DOMContentLoaded", function() {
     if (addForm) {
         addForm.addEventListener("submit", function (e) {
             e.preventDefault();
+            serializeTools('addToolsContainer', 'add_tools_hidden');
+            
             fetch("/add_task", {
                 method: "POST",
                 body: new FormData(addForm)
@@ -557,6 +643,13 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             })
             .catch(err => console.error("Error submitting task:", err));
+        });
+    }
+
+    const editForm = document.getElementById("editTaskForm");
+    if (editForm) {
+        editForm.addEventListener("submit", function () {
+            serializeTools('editToolsContainer', 'edit_tools_hidden');
         });
     }
 });
@@ -595,6 +688,12 @@ function openModal() {
     if (notice) notice.classList.add("d-none");
     closeDateTasksDetail();
 
+    const addToolsContainer = document.getElementById("addToolsContainer");
+    if (addToolsContainer) {
+        addToolsContainer.innerHTML = '';
+        addToolInput('addToolsContainer');
+    }
+
     document.getElementById("modalBox").style.display = "block";
     document.getElementById("globalOverlay").style.display = "block";
 }
@@ -619,7 +718,20 @@ function openTask(taskId) {
             setTxt("viewPhone", data.phone || "---");
             setTxt("viewDirection", data.direction || "---");
             setTxt("viewDescription", data.description || "---");
-            setTxt("viewTools", data.tools || "---");
+            
+            // Format tools with tags & small count badge
+            const toolsElem = document.getElementById("viewTools");
+            if (toolsElem) {
+                if (data.tools && data.tools.trim() !== "") {
+                    const toolList = data.tools.split(',').map(t => t.trim()).filter(t => t !== '');
+                    let html = toolList.map(t => `<span class="badge bg-light text-dark border me-1 mb-1">${t}</span>`).join('');
+                    html += ` <span class="badge bg-primary text-white ms-1">(${toolList.length})</span>`;
+                    toolsElem.innerHTML = html;
+                } else {
+                    toolsElem.innerText = "---";
+                }
+            }
+
             setTxt("viewInvoice", `${data.invoice} DT`);
             setTxt("viewDate", data.date || "---");
             setTxt("viewNote", data.note || "Aucune note.");
@@ -640,7 +752,19 @@ function openTask(taskId) {
             setVal("phone", data.phone || "");
             setVal("edit_direction", data.direction || "");
             setVal("description", data.description || "");
-            setVal("tools", data.tools || "");
+            
+            // Populate Edit Modal Tools Container
+            const editToolsContainer = document.getElementById("editToolsContainer");
+            if (editToolsContainer) {
+                editToolsContainer.innerHTML = '';
+                if (data.tools && data.tools.trim() !== '') {
+                    const toolList = data.tools.split(',').map(t => t.trim()).filter(t => t !== '');
+                    toolList.forEach(t => addToolInput('editToolsContainer', t));
+                } else {
+                    addToolInput('editToolsContainer');
+                }
+            }
+
             setVal("invoice", data.invoice || "");
             
             const dateInput = document.getElementById("date");
@@ -656,14 +780,11 @@ function openTask(taskId) {
 
             setVal("note", data.note || "");
 
-            // Handle worker selection list inside the .then block
-            const workerSelect = document.getElementById("edit_workers");
-            if (workerSelect) {
-                const assignedWorkers = data.workers || [];
-                Array.from(workerSelect.options).forEach(option => {
-                    option.selected = assignedWorkers.includes(option.value);
-                });
-            }
+            // Handle worker checkboxes in the edit modal
+            const assignedWorkers = data.workers || [];
+            document.querySelectorAll('.edit-worker-checkbox').forEach(checkbox => {
+                checkbox.checked = assignedWorkers.includes(checkbox.value);
+            });
 
             disableEditMode();
 
@@ -674,7 +795,6 @@ function openTask(taskId) {
         })
         .catch(error => console.error("Error fetching task:", error));
 }
-
 
 function enableEditMode() {
     document.getElementById("taskDetailView").style.display = "none";
@@ -797,21 +917,6 @@ function scrollToSection(sectionId) {
     }
 }
 
-function toggleTool(button) {
-    const icon = button.querySelector('.icon-state');
-    
-    // Toggle active state locally
-    button.classList.toggle('active');
-    
-    if (button.classList.contains('active')) {
-        icon.classList.remove('bi-circle');
-        icon.classList.add('bi-check-circle-fill');
-    } else {
-        icon.classList.remove('bi-check-circle-fill');
-        icon.classList.add('bi-circle');
-    }
-}
-
 function toggleTool(element) {
     const icon = element.querySelector('.icon-state');
     
@@ -827,14 +932,12 @@ function toggleTool(element) {
         icon.classList.add('bi-circle', 'text-primary');
     }
 
-    // Save state to localStorage
     const key = element.getAttribute('data-tool-key');
     if (key) {
         localStorage.setItem(key, isActive ? 'active' : 'inactive');
     }
 }
 
-// Restore saved tool states when page finishes loading
 document.addEventListener("DOMContentLoaded", function() {
     document.querySelectorAll('.tool-item').forEach(element => {
         const key = element.getAttribute('data-tool-key');
