@@ -482,6 +482,8 @@ def travailleurs():
         worker_logs_data=worker_logs_data
     )
 
+# app.py -> update_worker_hours()
+
 @app.route("/update_worker_hours", methods=["POST"])
 def update_worker_hours():
     log_id = request.form.get("log_id")
@@ -495,8 +497,8 @@ def update_worker_hours():
     if not log:
         return jsonify({"success": False, "error": "Log introuvable."}), 404
 
-    # If log hasn't been locked yet, ensure it uses worker's latest rates before locking
-    if not log.is_updated and log.worker:
+    # Fix: Always sync the applied rates with the worker's current default rates when saving
+    if log.worker:
         log.applied_normal_rate = log.worker.pay_per_normal_hr
         log.applied_extra_rate = log.worker.pay_per_extra_hr
 
@@ -557,7 +559,6 @@ def update_worker():
 
         # Update applied rates for pending/un-finalized logs
         for log in worker.task_logs:
-            if not log.is_updated:
                 log.applied_normal_rate = new_norm
                 log.applied_extra_rate = new_extra
 
@@ -681,8 +682,45 @@ def get_payment_details(payment_id):
         "payment_date": payment.date.strftime("%d/%m/%Y") if payment.date else "",
         "amount_paid": payment.amount,
         "amount_before_paying": round(amount_before_paying, 2),
-        "remaining_after_payment": round(remaining_after_payment, 2)
+        "remaining_after_payment": round(remaining_after_payment, 2),
+        "notes": payment.notes or "Aucune note."  # Added notes field
     })
+
+@app.route('/api/work_log_details/<int:log_id>')
+def get_work_log_details(log_id):
+    log = WorkerTaskLog.query.get_or_404(log_id)
+    worker = log.worker
+    task = log.task
+
+    normal_pay = log.normal_hours * log.applied_normal_rate
+    extra_pay = log.extra_hours * log.applied_extra_rate
+    total_log_pay = normal_pay + extra_pay
+
+    return jsonify({
+        "worker_name": worker.full_name,
+        "date": log.date.strftime("%d/%m/%Y") if log.date else "",
+        "client_name": task.client_name if task else "Non spécifié",
+        "task_description": task.description if task else "Aucune description",
+        "normal_hours": log.normal_hours,
+        "extra_hours": log.extra_hours,
+        "applied_normal_rate": log.applied_normal_rate,
+        "applied_extra_rate": log.applied_extra_rate,
+        "total_earnings": round(total_log_pay, 2)
+    })
+
+@app.route('/api/update_payment_note', methods=['POST'])
+def update_payment_note():
+    payment_id = request.form.get('payment_id')
+    notes = request.form.get('notes', '').strip()
+    
+    payment = WorkerPayment.query.get(payment_id)
+    if not payment:
+        return jsonify({"success": False, "error": "Paiement introuvable."}), 404
+
+    payment.notes = notes if notes else None
+    db.session.commit()
+    
+    return jsonify({"success": True})
 
 if __name__ == "__main__":
     with app.app_context():

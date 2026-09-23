@@ -423,14 +423,19 @@
         </div>
 
         <form id="paymentForm" onsubmit="submitPayment(event)">
-          <input type="hidden" id="payWorkerId">
-          <div class="mb-3">
-            <label class="form-label small fw-semibold">Montant Versé (DT)</label>
-            <input type="number" step="0.5" min="0.5" class="form-control" id="payAmountInput" required placeholder="0.00">
-          </div>
-          <button type="submit" class="btn btn-success w-100 fw-semibold py-2">
-            <i class="bi bi-check-circle me-1"></i> Valider le Paiement
-          </button>
+            <input type="hidden" id="payWorkerId">
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Montant Versé (DT)</label>
+                <input type="number" step="0.5" min="0.5" class="form-control" id="payAmountInput" required placeholder="0.00">
+            </div>
+            <!-- Added Notes Input Field -->
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Note / Remarque (Optionnel)</label>
+                <textarea class="form-control" id="payNotesInput" rows="2" placeholder="Ajouter un détail..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-success w-100 fw-semibold py-2">
+                <i class="bi bi-check-circle me-1"></i> Valider le Paiement
+            </button>
         </form>
       </div>
     </div>
@@ -446,6 +451,9 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-4">
+        <!-- Hidden input to track current payment ID -->
+        <input type="hidden" id="currentPaymentId">
+        
         <div class="card bg-light border-0 p-3 mb-3 rounded-3">
           <div class="d-flex justify-content-between mb-2">
             <span class="text-muted small">Date du Paiement:</span>
@@ -461,9 +469,68 @@
             <strong class="text-success fs-6" id="payDetailsAmount">0 DT</strong>
           </div>
           <hr class="my-2">
-          <div class="d-flex justify-content-between">
+          <div class="d-flex justify-content-between mb-2">
             <span class="text-muted small fw-semibold">Reste Actuel à Payer:</span>
             <strong class="text-danger fs-6" id="payDetailsRemaining">0 DT</strong>
+          </div>
+          
+          <!-- Editable Note Field -->
+          <hr class="my-2">
+          <div>
+            <label for="payDetailsNotesInput" class="text-muted small d-block mb-1">Note:</label>
+            <textarea 
+              id="payDetailsNotesInput" 
+              class="form-control form-control-sm bg-white" 
+              rows="2" 
+              placeholder="Aucune note."
+              onchange="savePaymentNote()"
+            ></textarea>
+            <small id="noteSaveStatus" class="text-success small fw-semibold d-none mt-1">
+              <i class="bi bi-check-circle me-1"></i>Note enregistrée!
+            </small>
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary w-100 fw-semibold" data-bs-dismiss="modal">Fermer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Work Details Breakdown Modal -->
+<div class="modal fade" id="workLogDetailsModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4 border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold" id="workLogWorkerName">Détails du Travail</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="card bg-light border-0 p-3 mb-3 rounded-3">
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted small">Date:</span>
+            <strong id="workLogDate">--/--/----</strong>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted small">Client:</span>
+            <strong id="workLogClient" class="text-dark">--</strong>
+          </div>
+          <div class="mb-2">
+            <span class="text-muted small d-block mb-1">Description:</span>
+            <div id="workLogDescription" class="small text-dark bg-white p-2 rounded border">--</div>
+          </div>
+          <hr class="my-2">
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted small">Heures Normales:</span>
+            <strong id="workLogNorm">0h (0 DT/h)</strong>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted small">Heures Extra:</span>
+            <strong id="workLogExtra">0h (0 DT/h)</strong>
+          </div>
+          <hr class="my-2">
+          <div class="d-flex justify-content-between">
+            <span class="text-muted small fw-semibold">Gagné pour cette tâche:</span>
+            <strong class="text-primary fs-6" id="workLogTotal">0 DT</strong>
           </div>
         </div>
         <button type="button" class="btn btn-secondary w-100 fw-semibold" data-bs-dismiss="modal">Fermer</button>
@@ -669,88 +736,168 @@
         modal.show();
     }
 
-    function submitPayment(event) {
-        event.preventDefault();
-        const workerId = document.getElementById('payWorkerId').value;
-        const amount = document.getElementById('payAmountInput').value;
+   
 
-        const formData = new FormData();
-        formData.append('worker_id', workerId);
-        formData.append('amount', amount);
+    // Open Modal and Populate Data
+function openPaymentDetailsModal(paymentId) {
+    document.getElementById('currentPaymentId').value = paymentId;
+    document.getElementById('noteSaveStatus').classList.add('d-none');
 
-        fetch('/pay_worker', {
-            method: 'POST',
-            body: formData
+    fetch(`/api/payment_details/${paymentId}`)
+        .then(res => {
+            if (!res.ok) throw new Error("Network response was not ok");
+            return res.json();
         })
-        .then(res => res.json())
         .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert(data.error || 'Erreur lors du paiement');
-            }
+            document.getElementById('payDetailsWorkerName').innerText = `Détails - ${data.worker_name}`;
+            document.getElementById('payDetailsDate').innerText = data.payment_date;
+            document.getElementById('payDetailsBefore').innerText = `${data.amount_before_paying} DT`;
+            document.getElementById('payDetailsAmount').innerText = `${data.amount_paid} DT`;
+            document.getElementById('payDetailsRemaining').innerText = `${data.remaining_after_payment} DT`;
+            
+            // Set value in textarea (empty string if default text)
+            const noteTextarea = document.getElementById('payDetailsNotesInput');
+            noteTextarea.value = (data.notes && data.notes !== "Aucune note.") ? data.notes : "";
+
+            const detailsModalEl = document.getElementById('paymentDetailsModal');
+            const modal = bootstrap.Modal.getInstance(detailsModalEl) || new bootstrap.Modal(detailsModalEl);
+            modal.show();
         })
         .catch(err => {
-            console.error("Error submitting payment:", err);
-            alert("Server connection error.");
+            console.error("Error fetching payment details:", err);
+            alert("Could not load payment details.");
         });
-    }
+}
 
-    function openPaymentDetailsModal(paymentId) {
-        fetch(`/api/payment_details/${paymentId}`)
-            .then(res => {
-                if (!res.ok) throw new Error("Network response was not ok");
-                return res.json();
-            })
-            .then(data => {
-                document.getElementById('payDetailsWorkerName').innerText = `Détails - ${data.worker_name}`;
-                document.getElementById('payDetailsDate').innerText = data.payment_date;
-                document.getElementById('payDetailsBefore').innerText = `${data.amount_before_paying} DT`;
-                document.getElementById('payDetailsAmount').innerText = `${data.amount_paid} DT`;
-                document.getElementById('payDetailsRemaining').innerText = `${data.remaining_after_payment} DT`;
+// Auto-Save Note Function
+function savePaymentNote() {
+    const paymentId = document.getElementById('currentPaymentId').value;
+    const notes = document.getElementById('payDetailsNotesInput').value;
 
-                const detailsModalEl = document.getElementById('paymentDetailsModal');
-                const modal = bootstrap.Modal.getInstance(detailsModalEl) || new bootstrap.Modal(detailsModalEl);
-                modal.show();
-            })
-            .catch(err => {
-                console.error("Error fetching payment details:", err);
-                alert("Could not load payment details.");
-            });
-    }
+    const formData = new FormData();
+    formData.append('payment_id', paymentId);
+    formData.append('notes', notes);
 
-    document.addEventListener("DOMContentLoaded", function() {
-        const calendarEl = document.getElementById('workerCalendar');
-        if (calendarEl) {
-            calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth',
-                locale: 'fr',
-                displayEventTime: false,
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: ''
-                },
-                buttonText: {
-                    today: "Aujourd'hui"
-                },
-                events: function(fetchInfo, successCallback, failureCallback) {
-                    fetch('/api/all_worker_events')
-                        .then(res => res.json())
-                        .then(data => successCallback(data))
-                        .catch(err => failureCallback(err));
-                },
-                eventClick: function(info) {
-                    if (info.event.id && info.event.id.startsWith("pay_")) {
+    fetch('/api/update_payment_note', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            const statusEl = document.getElementById('noteSaveStatus');
+            statusEl.classList.remove('d-none');
+            setTimeout(() => {
+                statusEl.classList.add('d-none');
+            }, 2000);
+        } else {
+            alert("Erreur lors de l'enregistrement de la note.");
+        }
+    })
+    .catch(err => {
+        console.error("Error updating note:", err);
+    });
+}
+
+    
+
+    // Submit Payment with Notes
+function submitPayment(event) {
+    event.preventDefault();
+    const workerId = document.getElementById('payWorkerId').value;
+    const amount = document.getElementById('payAmountInput').value;
+    const notes = document.getElementById('payNotesInput').value; // Get notes value
+
+    const formData = new FormData();
+    formData.append('worker_id', workerId);
+    formData.append('amount', amount);
+    formData.append('notes', notes); // Append notes
+
+    fetch('/pay_worker', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Erreur lors du paiement');
+        }
+    })
+    .catch(err => {
+        console.error("Error submitting payment:", err);
+        alert("Server connection error.");
+    });
+}
+
+
+
+// Fetch and Populate Work Log Details
+function openWorkLogDetailsModal(logId) {
+    fetch(`/api/work_log_details/${logId}`)
+        .then(res => {
+            if (!res.ok) throw new Error("Network response was not ok");
+            return res.json();
+        })
+        .then(data => {
+            document.getElementById('workLogWorkerName').innerText = `Détails - ${data.worker_name}`;
+            document.getElementById('workLogDate').innerText = data.date;
+            document.getElementById('workLogClient').innerText = data.client_name;
+            document.getElementById('workLogDescription').innerText = data.task_description;
+            document.getElementById('workLogNorm').innerText = `${data.normal_hours}h (${data.applied_normal_rate} DT/h)`;
+            document.getElementById('workLogExtra').innerText = `${data.extra_hours}h (${data.applied_extra_rate} DT/h)`;
+            document.getElementById('workLogTotal').innerText = `${data.total_earnings} DT`;
+
+            const logModalEl = document.getElementById('workLogDetailsModal');
+            const modal = bootstrap.Modal.getInstance(logModalEl) || new bootstrap.Modal(logModalEl);
+            modal.show();
+        })
+        .catch(err => {
+            console.error("Error fetching work log details:", err);
+            alert("Could not load work log details.");
+        });
+}
+
+// FullCalendar Event Click Routing
+document.addEventListener("DOMContentLoaded", function() {
+    const calendarEl = document.getElementById('workerCalendar');
+    if (calendarEl) {
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'fr',
+            displayEventTime: false,
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: ''
+            },
+            buttonText: {
+                today: "Aujourd'hui"
+            },
+            events: function(fetchInfo, successCallback, failureCallback) {
+                fetch('/api/all_worker_events')
+                    .then(res => res.json())
+                    .then(data => successCallback(data))
+                    .catch(err => failureCallback(err));
+            },
+            eventClick: function(info) {
+                if (info.event.id) {
+                    if (info.event.id.startsWith("pay_")) {
                         const paymentId = info.event.id.replace("pay_", "");
                         openPaymentDetailsModal(paymentId);
+                    } else if (info.event.id.startsWith("log_")) {
+                        const logId = info.event.id.replace("log_", "");
+                        openWorkLogDetailsModal(logId);
                     }
                 }
-            });
+            }
+        });
 
-            calendar.render();
-            setTimeout(() => calendar.updateSize(), 100);
-        }
-    });
+        calendar.render();
+        setTimeout(() => calendar.updateSize(), 100);
+    }
+});
+
 </script>
 {% endblock %}
