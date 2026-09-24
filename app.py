@@ -102,8 +102,8 @@ class Worker(db.Model):
 
         matched_logs = []
         for log in self.task_logs:
-            # Exclude logs belonging to completed or canceled tasks
-            if log.task and (log.task.done or log.task.canceled):
+            # Exclude only canceled tasks so completed tasks stay archived
+            if log.task and log.task.canceled:
                 continue
 
             if log.date and start_of_week <= log.date <= end_of_week and log.date.weekday() == target_weekday:
@@ -619,8 +619,7 @@ def get_worker_events(worker_id):
     
     events = []
     for log in logs:
-        # Skip archived tasks
-        if log.task and (log.task.done or log.task.canceled):
+        if log.task and log.task.canceled:
             continue
 
         events.append({
@@ -649,8 +648,7 @@ def get_all_worker_events():
     
     for worker in all_workers:
         for log in worker.task_logs:
-            # Skip archived tasks
-            if log.task and (log.task.done or log.task.canceled):
+            if log.task and log.task.canceled:
                 continue
 
             events.append({
