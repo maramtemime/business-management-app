@@ -44,13 +44,24 @@ class Worker(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(100), nullable=False)
     phone_num = db.Column(db.String(20), nullable=False)
-    pay_per_normal_hr = db.Column(db.Float, default=0.0)
-    pay_per_extra_hr = db.Column(db.Float, default=0.0)
+    pay_per_normal_hr = db.Column(db.Float, default=0.0) # Stores 'Prix / Jour' or 'Prix / H Normale'
+    pay_per_extra_hr = db.Column(db.Float, default=0.0)  # Stores 'Prix / H Extra'
+    
+    pay_type = db.Column(db.String(10), default='hourly')  # 'hourly' or 'daily'
+    hours_per_day = db.Column(db.Float, nullable=True)     # Required if pay_type == 'daily'
+    
     color = db.Column(db.String(20), nullable=True)
     _activities = db.Column('activities', db.Text, default='{}')
 
     task_logs = db.relationship('WorkerTaskLog', backref='worker', lazy=True, cascade="all, delete-orphan")
     payments = db.relationship('WorkerPayment', backref='worker', lazy=True, cascade="all, delete-orphan")
+
+    @property
+    def effective_normal_rate(self):
+        """Returns the actual rate per hour based on pay_type."""
+        if self.pay_type == 'daily' and self.hours_per_day and self.hours_per_day > 0:
+            return self.pay_per_normal_hr / self.hours_per_day
+        return self.pay_per_normal_hr
 
     @property
     def assigned_color(self):
@@ -78,7 +89,7 @@ class Worker(db.Model):
 
     @property
     def total_pay(self):
-        """Calculates gross total earnings dynamically using historically applied rates."""
+        """Calculates gross total earnings dynamically using applied rates."""
         gross = sum(
             (log.normal_hours * log.applied_normal_rate) + 
             (log.extra_hours * log.applied_extra_rate)
@@ -102,7 +113,6 @@ class Worker(db.Model):
 
         matched_logs = []
         for log in self.task_logs:
-            # Exclude only canceled tasks so completed tasks stay archived
             if log.task and log.task.canceled:
                 continue
 
@@ -259,7 +269,7 @@ def add_task():
                     date=task_date_obj,
                     normal_hours=float(request.form.get(f"norm_hrs_{worker.id}", 0.0)),
                     extra_hours=float(request.form.get(f"extra_hrs_{worker.id}", 0.0)),
-                    applied_normal_rate=worker.pay_per_normal_hr,
+                    applied_normal_rate=worker.effective_normal_rate,
                     applied_extra_rate=worker.pay_per_extra_hr,
                     is_updated=False
                 )
@@ -336,7 +346,7 @@ def update_task():
                             date=task_date_obj,
                             normal_hours=0.0,
                             extra_hours=0.0,
-                            applied_normal_rate=worker.pay_per_normal_hr,
+                            applied_normal_rate=worker.effective_normal_rate,
                             applied_extra_rate=worker.pay_per_extra_hr,
                             is_updated=False
                         )
@@ -437,18 +447,27 @@ def travailleurs():
     if request.method == 'POST':
         full_name = request.form.get('full_name', '').strip()
         phone_num = request.form.get('phone_num', '').strip()
+        pay_type = request.form.get('pay_type', 'hourly').strip()
+        
         try:
             pay_per_normal_hr = float(request.form.get('pay_per_normal_hr', 0))
             pay_per_extra_hr = float(request.form.get('pay_per_extra_hr', 0))
+            
+            # Parse hours_per_day if daily option is chosen
+            hours_per_day_raw = request.form.get('hours_per_day')
+            hours_per_day = float(hours_per_day_raw) if hours_per_day_raw and pay_type == 'daily' else None
         except ValueError:
             pay_per_normal_hr = 0.0
             pay_per_extra_hr = 0.0
+            hours_per_day = None
         
         new_worker = Worker(
             full_name=full_name,
             phone_num=phone_num,
             pay_per_normal_hr=pay_per_normal_hr,
-            pay_per_extra_hr=pay_per_extra_hr
+            pay_per_extra_hr=pay_per_extra_hr,
+            pay_type=pay_type,
+            hours_per_day=hours_per_day
         )
         db.session.add(new_worker)
         db.session.commit()
@@ -503,7 +522,7 @@ def update_worker_hours():
 
     # Fix: Always sync the applied rates with the worker's current default rates when saving
     if log.worker:
-        log.applied_normal_rate = log.worker.pay_per_normal_hr
+        log.applied_normal_rate = log.worker.effective_normal_rate
         log.applied_extra_rate = log.worker.pay_per_extra_hr
 
     log.normal_hours = norm
@@ -542,6 +561,8 @@ def get_worker(worker_id):
         'phone_num': worker.phone_num or '',
         'pay_per_normal_hr': worker.pay_per_normal_hr,
         'pay_per_extra_hr': worker.pay_per_extra_hr,
+        'pay_type': worker.pay_type or 'hourly',
+        'hours_per_day': worker.hours_per_day or '',
         'color': worker.assigned_color
     })
 
@@ -552,19 +573,24 @@ def update_worker():
     
     worker.full_name = request.form.get('full_name', '').strip()
     worker.phone_num = request.form.get('phone_num', '').strip()
+    worker.pay_type = request.form.get('pay_type', 'hourly').strip()
     
     try:
-        new_norm = float(request.form.get('pay_per_normal_hr', 0))
-        new_extra = float(request.form.get('pay_per_extra_hr', 0))
+        # Accepts both field key conventions safely
+        new_norm = float(request.form.get('hourly_rate') or request.form.get('pay_per_normal_hr') or 0)
+        new_extra = float(request.form.get('overtime_rate') or request.form.get('pay_per_extra_hr') or 0)
         
-        # Update worker's default rates
+        hours_per_day_raw = request.form.get('hours_per_day')
+        worker.hours_per_day = float(hours_per_day_raw) if hours_per_day_raw and worker.pay_type == 'daily' else None
+        
         worker.pay_per_normal_hr = new_norm
         worker.pay_per_extra_hr = new_extra
 
-        # Update applied rates for pending/un-finalized logs
+        # Apply worker's effective hourly rate to all task logs
+        effective_rate = worker.effective_normal_rate
         for log in worker.task_logs:
-                log.applied_normal_rate = new_norm
-                log.applied_extra_rate = new_extra
+            log.applied_normal_rate = effective_rate
+            log.applied_extra_rate = new_extra
 
     except ValueError:
         pass
