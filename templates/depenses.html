@@ -43,7 +43,11 @@
                     <tr>
                         <td>{{ expense.date.strftime('%d/%m/%Y') }}</td>
                         <td class="fw-semibold">{{ expense.title }}</td>
-                        <td><span class="badge bg-secondary">{{ expense.category }}</span></td>
+                        <td>
+                            <span class="badge rounded-pill text-white px-3 py-2" style="background-color: {{ categories_dict.get(expense.category, '#6c757d') }};">
+                                {{ expense.category }}
+                            </span>
+                        </td>
                         <td>{{ expense.vendor or '-' }}</td>
                         <td class="fw-bold text-danger">{{ "%.2f"|format(expense.amount) }} DT</td>
                         <td>{{ expense.notes or '-' }}</td>
@@ -77,10 +81,33 @@
                         <label class="form-label">Montant (DT) *</label>
                         <input type="number" step="0.01" name="amount" class="form-control" required>
                     </div>
+
+                    <!-- Interactive Pill List Category Field -->
                     <div class="mb-3">
-                        <label class="form-label">Catégorie</label>
-                        <input type="text" name="category" class="form-control" placeholder="ex: Matériel, Carburant...">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <label class="form-label mb-0 fw-semibold">Catégorie</label>
+                            <button type="button" class="btn btn-sm btn-outline-primary rounded-circle" data-bs-toggle="modal" data-bs-target="#addCategoryModal" title="Créer une catégorie">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+
+                        <input type="hidden" name="category" id="selected_category" value="Matériaux">
+
+                        <div class="d-flex flex-wrap gap-2 pt-1" id="categoryPillContainer">
+                            {% for cat in categories %}
+                            <button type="button" 
+                                    class="category-pill btn rounded-pill border px-3 py-1 text-dark d-flex align-items-center gap-2 {% if loop.first %}active-pill{% endif %}"
+                                    data-category-name="{{ cat.name }}"
+                                    data-color="{{ cat.color }}"
+                                    style="border-color: {{ cat.color }} !important; {% if loop.first %}background-color: {{ cat.color }}; color: white !important;{% endif %}"
+                                    onclick="selectCategory(this)">
+                                <span class="dot-indicator" style="width: 8px; height: 8px; border-radius: 50%; background-color: {{ cat.color }}; display: {% if loop.first %}none{% else %}inline-block{% endif %};"></span>
+                                <span>{{ cat.name }}</span>
+                            </button>
+                            {% endfor %}
+                        </div>
                     </div>
+
                     <div class="mb-3">
                         <label class="form-label">Fournisseur</label>
                         <input type="text" name="vendor" class="form-control">
@@ -102,4 +129,53 @@
         </div>
     </div>
 </div>
+
+<!-- Modal to Add New Category -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold">Nouvelle Catégorie</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('add_category') }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nom de catégorie *</label>
+                        <input type="text" name="category_name" class="form-control" placeholder="ex: Transport" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Couleur de représentation</label>
+                        <input type="color" name="category_color" class="form-control form-control-color w-100" value="#0d6efd">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary btn-sm">Ajouter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function selectCategory(buttonElement) {
+    const selectedName = buttonElement.getAttribute('data-category-name');
+    const selectedColor = buttonElement.getAttribute('data-color');
+
+    document.getElementById('selected_category').value = selectedName;
+
+    document.querySelectorAll('.category-pill').forEach(btn => {
+        const color = btn.getAttribute('data-color');
+        btn.style.backgroundColor = 'transparent';
+        btn.style.color = '#212529';
+        const dot = btn.querySelector('.dot-indicator');
+        if (dot) dot.style.display = 'inline-block';
+    });
+
+    buttonElement.style.backgroundColor = selectedColor;
+    buttonElement.style.color = '#ffffff';
+    const activeDot = buttonElement.querySelector('.dot-indicator');
+    if (activeDot) activeDot.style.display = 'none';
+}
+</script>
 {% endblock %}

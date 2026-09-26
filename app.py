@@ -160,6 +160,12 @@ class Expense(db.Model):
     def __repr__(self):
         return f'<Expense {self.title} - {self.amount} DT>'
 
+class Category(db.Model):
+    __tablename__ = 'category'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    color = db.Column(db.String(20), nullable=False, default="#6c757d")
+
 # --- ROUTES ---
 @app.route("/", methods=["GET", "POST"])
 def login():
@@ -773,6 +779,19 @@ def update_payment_note():
 
 @app.route('/depenses', methods=['GET', 'POST'])
 def depenses():
+    # Pre-populate default categories if none exist
+    default_categories = [
+        {'name': 'Matériaux', 'color': '#0d6efd'},
+        {'name': 'Transport', 'color': '#fd7e14'},
+        {'name': 'Outillage', 'color': '#198754'},
+        {'name': 'Carburant', 'color': '#dc3545'},
+        {'name': 'Autre', 'color': '#6c757d'}
+    ]
+    if Category.query.count() == 0:
+        for cat in default_categories:
+            db.session.add(Category(name=cat['name'], color=cat['color']))
+        db.session.commit()
+
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         category = request.form.get('category', '').strip()
@@ -804,10 +823,26 @@ def depenses():
             db.session.commit()
             return redirect(url_for('depenses'))
 
+    categories = Category.query.all()
+    categories_dict = {cat.name: cat.color for cat in categories}
     expenses = Expense.query.order_by(Expense.date.desc()).all()
     total_expenses = sum(e.amount for e in expenses)
-    return render_template('depenses.html', expenses=expenses, total_expenses=total_expenses)
 
+    return render_template('depenses.html', expenses=expenses, total_expenses=total_expenses, categories=categories, categories_dict=categories_dict)
+
+@app.route('/add_category', methods=['POST'])
+def add_category():
+    name = request.form.get('category_name', '').strip()
+    color = request.form.get('category_color', '#0d6efd').strip()
+
+    if name:
+        existing = Category.query.filter_by(name=name).first()
+        if not existing:
+            new_cat = Category(name=name, color=color)
+            db.session.add(new_cat)
+            db.session.commit()
+
+    return redirect(url_for('depenses'))
 
 if __name__ == "__main__":
     with app.app_context():
