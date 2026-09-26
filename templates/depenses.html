@@ -17,112 +17,123 @@
         </button>
     </div>
 
-   <!-- Category Filter Bar -->
-<div class="card border-0 shadow-sm rounded-3 p-3 mb-4">
-    <div class="d-flex align-items-center justify-content-between mb-2">
-        <span class="text-muted small fw-bold font-monospace text-uppercase">Filtrer par Catégorie</span>
-        <div class="d-flex gap-2">
-            <!-- Settings Gear Button -->
-            <button type="button" 
-                    id="toggleArchiveManagerBtn" 
-                    class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center" 
-                    style="width: 31px; height: 31px;" 
-                    onclick="toggleArchiveManager()" 
-                    title="Catégories archivées">
-                <i class="bi bi-gear-fill"></i>
-            </button>
-            <!-- Red Delete Mode Toggle Button -->
-            <button type="button" 
-                    id="toggleDeleteModeBtn" 
-                    class="btn btn-sm btn-outline-danger rounded-circle d-flex align-items-center justify-content-center" 
-                    style="width: 31px; height: 31px;" 
-                    onclick="toggleDeleteMode()" 
-                    title="Gérer/Supprimer des catégories">
-                <i class="bi bi-x-lg"></i>
-            </button>
-            <!-- Add Category Button -->
-            <button type="button" 
-                    class="btn btn-sm btn-outline-primary rounded-circle d-flex align-items-center justify-content-center" 
-                    style="width: 31px; height: 31px;" 
-                    data-bs-toggle="modal" 
-                    data-bs-target="#addCategoryModal" 
-                    title="Créer une catégorie">
-                <i class="bi bi-plus-lg"></i>
-            </button>
+   <!-- Filter Bar (Search + Date Filter Mode + Dynamic Pickers) -->
+    <div class="card border-0 shadow-sm rounded-3 p-3 mb-4">
+        <div class="row g-3 align-items-center mb-3">
+            <!-- Text Search Input -->
+            <div class="col-12 col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input type="text" id="expenseSearch" onkeyup="filterExpensesTable()" class="form-control border-start-0 bg-light" placeholder="Rechercher par titre, notes, catégorie...">
+                </div>
+            </div>
+
+            <!-- Date Filter Mode Select -->
+            <div class="col-12 col-md-6" id="filterModeCol">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0">
+                        <i class="bi bi-funnel text-muted"></i>
+                    </span>
+                    <select id="dateFilterMode" onchange="handleFilterModeChange()" class="form-select border-start-0 bg-light">
+                        <option value="all">Toutes les dates</option>
+                        <option value="date">Date spécifique (JJ/MM/AAAA)</option>
+                        <option value="month">Mois entier</option>
+                        <option value="year">Année entière</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Dynamic Date Pickers Container -->
+            <div class="col-12 col-md-3 d-none" id="dynamicPickerCol">
+                <!-- 1. Exact Date Picker -->
+                <div id="datePickerContainer" class="d-none">
+                    <input type="date" id="filterExactDate" onchange="filterExpensesTable()" class="form-control bg-light">
+                </div>
+
+                <!-- 2. Exact Month Picker -->
+                <div id="monthPickerContainer" class="d-none">
+                    <input type="month" id="filterExactMonth" onchange="filterExpensesTable()" class="form-control bg-light">
+                </div>
+
+                <!-- 3. Exact Year Select -->
+                <div id="yearPickerContainer" class="d-none">
+                    <select id="filterExactYear" onchange="filterExpensesTable()" class="form-select bg-light">
+                        <!-- Populated dynamically by JS -->
+                    </select>
+                </div>
+            </div>
         </div>
-    </div>
-    
-    <!-- Active Category Pills -->
-    <div class="d-flex flex-wrap gap-2 align-items-center" id="filterPillContainer">
-        <!-- ALL Pill -->
-        <button type="button" 
-                class="filter-pill btn rounded-pill px-3 py-1 btn-dark text-white active-filter" 
-                data-category="ALL"
-                onclick="toggleCategoryFilter(this, 'ALL')">
-            Tous
-        </button>
 
-        {% for cat in categories %}
-        <div class="d-inline-flex align-items-center position-relative">
-            <button type="button" 
-                    class="filter-pill btn rounded-pill border px-3 py-1 text-dark d-flex align-items-center gap-2" 
-                    data-category="{{ cat.name }}"
-                    data-color="{{ cat.color }}"
-                    style="border-color: {{ cat.color }} !important;"
-                    onclick="toggleCategoryFilter(this, '{{ cat.name }}')">
-                <span class="dot-indicator" style="width: 8px; height: 8px; border-radius: 50%; background-color: {{ cat.color }}; display: inline-block;"></span>
-                <span>{{ cat.name }}</span>
-            </button>
+        <hr class="text-muted opacity-25 my-2">
 
-            <!-- Soft Delete Button (Hides into archive) -->
-            <div class="delete-cat-form d-none position-absolute top-0 end-0 translate-middle-y" style="margin-top: 2px;">
-                <button type="button" 
-                        class="btn btn-sm text-danger p-0 border-0 bg-transparent" 
-                        title="Archiver"
-                        onclick="showDeleteCategoryConfirm('{{ url_for('delete_category', category_id=cat.id) }}')">
-                    <i class="bi bi-x-circle-fill" style="font-size: 14px; background: white; border-radius: 50%;"></i>
+        <!-- Category Filter Bar (Pills) -->
+        <div class="d-flex align-items-center justify-content-between mb-2 mt-2">
+            <span class="text-muted small fw-bold font-monospace text-uppercase">Filtrer par Catégorie</span>
+            <div class="d-flex gap-2">
+                <button type="button" id="toggleArchiveManagerBtn" class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center" style="width: 31px; height: 31px;" onclick="toggleArchiveManager()" title="Catégories archivées">
+                    <i class="bi bi-gear-fill"></i>
+                </button>
+                <button type="button" id="toggleDeleteModeBtn" class="btn btn-sm btn-outline-danger rounded-circle d-flex align-items-center justify-content-center" style="width: 31px; height: 31px;" onclick="toggleDeleteMode()" title="Gérer/Supprimer des catégories">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 31px; height: 31px;" data-bs-toggle="modal" data-bs-target="#addCategoryModal" title="Créer une catégorie">
+                    <i class="bi bi-plus-lg"></i>
                 </button>
             </div>
         </div>
-        {% endfor %}
-    </div>
+        
+        <!-- Active Category Pills -->
+        <div class="d-flex flex-wrap gap-2 align-items-center" id="filterPillContainer">
+            <button type="button" class="filter-pill btn rounded-pill px-3 py-1 btn-dark text-white active-filter" data-category="ALL" onclick="toggleCategoryFilter(this, 'ALL')">
+                Tous
+            </button>
 
-    <!-- Archived Categories Container (Hidden by default) -->
-    <div id="archivedCategoryContainer" class="d-none mt-3 pt-3 border-top">
-        <span class="text-muted small fw-bold font-monospace text-uppercase d-block mb-2">Catégories Archivées</span>
-        <div class="d-flex flex-wrap gap-2 align-items-center">
-            {% for cat in archived_categories %}
+            {% for cat in categories %}
             <div class="d-inline-flex align-items-center position-relative">
-                <button type="button" 
-                        class="filter-pill btn rounded-pill border px-3 py-1 text-secondary opacity-75 d-flex align-items-center gap-2" 
-                        data-category="{{ cat.name }}"
-                        data-color="{{ cat.color }}"
-                        style="border-color: {{ cat.color }} !important; border-style: dashed !important;"
-                        onclick="toggleCategoryFilter(this, '{{ cat.name }}')">
+                <button type="button" class="filter-pill btn rounded-pill border px-3 py-1 text-dark d-flex align-items-center gap-2" data-category="{{ cat.name }}" data-color="{{ cat.color }}" style="border-color: {{ cat.color }} !important;" onclick="toggleCategoryFilter(this, '{{ cat.name }}')">
                     <span class="dot-indicator" style="width: 8px; height: 8px; border-radius: 50%; background-color: {{ cat.color }}; display: inline-block;"></span>
                     <span>{{ cat.name }}</span>
                 </button>
 
-                <!-- Action Controls (Visible when Gear button active) -->
-                <div class="archive-action-btns d-none position-absolute top-0 end-0 translate-middle-y d-flex gap-1" style="margin-top: 2px;">
-                    <!-- Restore (+) Button -->
-                    <form action="{{ url_for('restore_category', category_id=cat.id) }}" method="POST" class="d-inline">
-                        <button type="submit" class="btn btn-sm text-success p-0 border-0 bg-transparent" title="Restaurer">
-                            <i class="bi bi-plus-circle-fill" style="font-size: 14px; background: white; border-radius: 50%;"></i>
-                        </button>
-                    </form>
-                    <!-- Permanent Delete (X) Button -->
-                    <button type="button" class="btn btn-sm text-danger p-0 border-0 bg-transparent" title="Supprimer définitivement" onclick="showDeleteCategoryConfirm('{{ url_for('delete_category_permanent', category_id=cat.id) }}')">
+                <div class="delete-cat-form d-none position-absolute top-0 end-0 translate-middle-y" style="margin-top: 2px;">
+                    <button type="button" class="btn btn-sm text-danger p-0 border-0 bg-transparent" title="Archiver" onclick="showDeleteCategoryConfirm('{{ url_for('delete_category', category_id=cat.id) }}')">
                         <i class="bi bi-x-circle-fill" style="font-size: 14px; background: white; border-radius: 50%;"></i>
                     </button>
                 </div>
             </div>
-            {% else %}
-            <span class="text-muted small italic">Aucune catégorie archivée.</span>
             {% endfor %}
         </div>
+
+        <!-- Archived Categories Container -->
+        <div id="archivedCategoryContainer" class="d-none mt-3 pt-3 border-top">
+            <span class="text-muted small fw-bold font-monospace text-uppercase d-block mb-2">Catégories Archivées</span>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                {% for cat in archived_categories %}
+                <div class="d-inline-flex align-items-center position-relative">
+                    <button type="button" class="filter-pill btn rounded-pill border px-3 py-1 text-secondary opacity-75 d-flex align-items-center gap-2" data-category="{{ cat.name }}" data-color="{{ cat.color }}" style="border-color: {{ cat.color }} !important; border-style: dashed !important;" onclick="toggleCategoryFilter(this, '{{ cat.name }}')">
+                        <span class="dot-indicator" style="width: 8px; height: 8px; border-radius: 50%; background-color: {{ cat.color }}; display: inline-block;"></span>
+                        <span>{{ cat.name }}</span>
+                    </button>
+
+                    <div class="archive-action-btns d-none position-absolute top-0 end-0 translate-middle-y d-flex gap-1" style="margin-top: 2px;">
+                        <form action="{{ url_for('restore_category', category_id=cat.id) }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-sm text-success p-0 border-0 bg-transparent" title="Restaurer">
+                                <i class="bi bi-plus-circle-fill" style="font-size: 14px; background: white; border-radius: 50%;"></i>
+                            </button>
+                        </form>
+                        <button type="button" class="btn btn-sm text-danger p-0 border-0 bg-transparent" title="Supprimer définitivement" onclick="showDeleteCategoryConfirm('{{ url_for('delete_category_permanent', category_id=cat.id) }}')">
+                            <i class="bi bi-x-circle-fill" style="font-size: 14px; background: white; border-radius: 50%;"></i>
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <span class="text-muted small italic">Aucune catégorie archivée.</span>
+                {% endfor %}
+            </div>
+        </div>
     </div>
-</div>
 
     <!-- Expenses Table -->
     <div class="card border-0 shadow-sm rounded-3 p-3">
@@ -133,38 +144,43 @@
                         <th>Date</th>
                         <th>Titre</th>
                         <th>Catégorie</th>
-                        <th>Fournisseur</th>
-                        <th>Montant</th>
                         <th>Notes</th>
+                        <th>Montant</th>
                     </tr>
                 </thead>
+               <!-- Expenses Table Body -->
                 <tbody>
                     {% for expense in expenses %}
-                    <tr class="expense-row" data-category="{{ expense.category }}">
+                    <tr class="expense-row" 
+                        style="cursor: pointer;"
+                        data-category="{{ expense.category }}" 
+                        data-date="{{ expense.date.strftime('%Y-%m-%d') }}"
+                        data-title="{{ expense.title }}"
+                        data-date-display="{{ expense.date.strftime('%d/%m/%Y') }}"
+                        data-amount="{{ '%.2f'|format(expense.amount) }}"
+                        data-color="{{ categories_dict.get(expense.category, '#6c757d') }}"
+                        data-notes="{{ expense.notes if expense.notes else '' }}"
+                        onclick="openExpenseDetailFromRow(this)">
                         <td>{{ expense.date.strftime('%d/%m/%Y') }}</td>
-                        <td class="fw-semibold">{{ expense.title }}</td>
+                        <td class="fw-bold">{{ expense.title }}</td>
                         <td>
-                            <span class="badge rounded-pill text-white px-3 py-2" style="background-color: {{ categories_dict.get(expense.category, '#6c757d') }};">
+                            <span class="badge rounded-pill px-3 py-2" style="background-color: {{ categories_dict.get(expense.category, '#6c757d') }};">
                                 {{ expense.category }}
                             </span>
                         </td>
-                        <td>{{ expense.vendor or '-' }}</td>
-                        <td class="fw-bold text-danger">{{ "%.2f"|format(expense.amount) }} DT</td>
-                        <td>{{ expense.notes or '-' }}</td>
-                    </tr>
-                    {% else %}
-                    <tr id="emptyRow">
-                        <td colspan="6" class="text-center py-4 text-muted">Aucune dépense enregistrée.</td>
+                        <td class="text-muted text-truncate" style="max-width: 200px;" title="{{ expense.notes if expense.notes else '' }}">
+                            {{ expense.notes if expense.notes else '-' }}
+                        </td>
+                        <td class="text-danger fw-bold">{{ "%.2f"|format(expense.amount) }} DT</td>
                     </tr>
                     {% endfor %}
-                    <tr id="noMatchingRow" style="display: none;">
-                        <td colspan="6" class="text-center py-4 text-muted">Aucune dépense trouvée pour les catégories sélectionnées.</td>
+                    <tr id="noResultsRow" class="d-none">
+                        <td colspan="5" class="text-center py-4 text-muted">
+                            <i class="bi bi-search fs-2 d-block mb-1 opacity-50"></i>
+                            Aucune dépense trouvée pour les filtres sélectionnés.
+                        </td>
                     </tr>
                 </tbody>
-            </table>
-        </div>
-    </div>
-</div>
 
 <!-- Add Expense Modal -->
 <div class="modal fade" id="addExpenseModal" tabindex="-1" aria-hidden="true">
@@ -205,10 +221,6 @@
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Fournisseur</label>
-                        <input type="text" name="vendor" class="form-control">
-                    </div>
                     <div class="mb-3">
                         <label class="form-label">Date</label>
                         <input type="date" name="date" class="form-control">
@@ -277,6 +289,46 @@
                         </button>
                     </form>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Expense Detail Modal -->
+<div class="modal fade" id="expenseDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+        <div class="modal-content border-0 shadow-lg rounded-4 p-2">
+            <div class="modal-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="fw-bold text-dark mb-0" id="detailExpenseTitle">Détails de la dépense</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <hr class="my-2">
+
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Catégorie</span>
+                    <span id="detailExpenseCategory" class="badge rounded-pill px-3 py-2">---</span>
+                </div>
+
+                <div class="row mb-2">
+                    <div class="col-6">
+                        <span class="text-muted small d-block">Montant</span>
+                        <span id="detailExpenseAmount" class="badge bg-danger fs-6">0.00 DT</span>
+                    </div>
+                    <div class="col-6">
+                        <span class="text-muted small d-block">Date</span>
+                        <strong id="detailExpenseDate" class="text-dark">---</strong>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <span class="text-muted small d-block mb-1">Notes / Description</span>
+                    <div id="detailExpenseNotes" class="bg-light p-3 rounded-3 text-secondary border small" style="white-space: pre-wrap; max-height: 200px; overflow-y: auto;">
+                        Aucune note.
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-secondary w-100 rounded-3 fw-semibold" data-bs-dismiss="modal">Fermer</button>
             </div>
         </div>
     </div>
@@ -422,6 +474,136 @@ function toggleArchiveManager() {
         gearBtn.classList.remove('btn-secondary', 'text-white');
         gearBtn.classList.add('btn-outline-secondary');
     }
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    populateYearDropdown();
+});
+
+function populateYearDropdown() {
+    const yearSelect = document.getElementById('filterExactYear');
+    if (!yearSelect) return;
+
+    const currentYear = new Date().getFullYear();
+    yearSelect.innerHTML = '';
+
+    for (let year = currentYear; year >= currentYear - 5; year--) {
+        const opt = document.createElement('option');
+        opt.value = String(year);
+        opt.textContent = year;
+        yearSelect.appendChild(opt);
+    }
+}
+
+function handleFilterModeChange() {
+    const mode = document.getElementById('dateFilterMode').value;
+    
+    const filterModeCol = document.getElementById('filterModeCol');
+    const dynamicPickerCol = document.getElementById('dynamicPickerCol');
+
+    const dateContainer = document.getElementById('datePickerContainer');
+    const monthContainer = document.getElementById('monthPickerContainer');
+    const yearContainer = document.getElementById('yearPickerContainer');
+
+    dateContainer.classList.add('d-none');
+    monthContainer.classList.add('d-none');
+    yearContainer.classList.add('d-none');
+
+    if (mode === 'all') {
+        filterModeCol.className = 'col-12 col-md-6';
+        dynamicPickerCol.classList.add('d-none');
+    } else {
+        filterModeCol.className = 'col-12 col-md-3';
+        dynamicPickerCol.classList.remove('d-none');
+
+        if (mode === 'date') {
+            dateContainer.classList.remove('d-none');
+        } else if (mode === 'month') {
+            monthContainer.classList.remove('d-none');
+        } else if (mode === 'year') {
+            yearContainer.classList.remove('d-none');
+        }
+    }
+
+    filterExpensesTable();
+}
+
+function filterExpensesTable() {
+    const searchInput = document.getElementById('expenseSearch').value.toLowerCase().trim();
+    const filterMode = document.getElementById('dateFilterMode').value;
+    const rows = document.querySelectorAll('.expense-row');
+
+    const selectedExactDate = document.getElementById('filterExactDate').value;
+    const selectedExactMonth = document.getElementById('filterExactMonth').value;
+    const selectedExactYear = document.getElementById('filterExactYear').value;
+
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const textContent = row.textContent.toLowerCase();
+        const rowCategory = row.getAttribute('data-category');
+        const dateVal = row.getAttribute('data-date') || '';
+
+        // Check text search matching
+        const matchesSearch = textContent.includes(searchInput);
+
+        // Check category pill matching
+        const matchesCategory = activeCategories.has('ALL') || activeCategories.has(rowCategory);
+
+        // Check date matching
+        let matchesDate = true;
+        if (filterMode === 'date') {
+            matchesDate = selectedExactDate ? (dateVal === selectedExactDate) : true;
+        } else if (filterMode === 'month') {
+            matchesDate = selectedExactMonth ? dateVal.startsWith(selectedExactMonth) : true;
+        } else if (filterMode === 'year') {
+            matchesDate = selectedExactYear ? dateVal.startsWith(selectedExactYear) : true;
+        }
+
+        if (matchesSearch && matchesCategory && matchesDate) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    const noResultsRow = document.getElementById('noResultsRow');
+    if (noResultsRow) {
+        noResultsRow.classList.toggle('d-none', visibleCount > 0 || rows.length === 0);
+    }
+}
+
+// Update applyFilters to bridge category selection into main table filter logic
+function applyFilters() {
+    filterExpensesTable();
+}
+
+function openExpenseDetailFromRow(rowElem) {
+    const title = rowElem.getAttribute('data-title');
+    const date = rowElem.getAttribute('data-date-display');
+    const category = rowElem.getAttribute('data-category');
+    const amount = rowElem.getAttribute('data-amount');
+    const color = rowElem.getAttribute('data-color');
+    const notes = rowElem.getAttribute('data-notes');
+
+    document.getElementById('detailExpenseTitle').textContent = title || "Détails de la dépense";
+    document.getElementById('detailExpenseDate').textContent = date || "---";
+    document.getElementById('detailExpenseAmount').textContent = `${amount} DT`;
+    
+    const catBadge = document.getElementById('detailExpenseCategory');
+    if (catBadge) {
+        catBadge.textContent = category || "Autre";
+        catBadge.style.backgroundColor = color || "#6c757d";
+    }
+
+    const notesElem = document.getElementById('detailExpenseNotes');
+    if (notesElem) {
+        notesElem.textContent = (notes && notes.trim() !== '') ? notes : "Aucune note.";
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('expenseDetailModal'));
+    modal.show();
 }
 
 </script>

@@ -154,7 +154,6 @@ class Expense(db.Model):
     category = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     date = db.Column(db.Date, nullable=False, default=date.today)
-    vendor = db.Column(db.String(100), nullable=True)
     notes = db.Column(db.Text, nullable=True)
 
     def __repr__(self):
@@ -797,7 +796,6 @@ def depenses():
         title = request.form.get('title', '').strip()
         category = request.form.get('category', '').strip()
         amount_raw = request.form.get('amount', '0').strip()
-        vendor = request.form.get('vendor', '').strip()
         date_str = request.form.get('date', '').strip()
         notes = request.form.get('notes', '').strip()
 
@@ -816,7 +814,6 @@ def depenses():
                 title=title,
                 category=category,
                 amount=amount,
-                vendor=vendor,
                 date=expense_date,
                 notes=notes if notes else None
             )
@@ -834,7 +831,7 @@ def depenses():
     all_categories = Category.query.all()
     categories_dict = {cat.name: cat.color for cat in all_categories}
 
-    expenses = Expense.query.order_by(Expense.date.desc()).all()
+    expenses = Expense.query.order_by(Expense.date.desc(), Expense.id.desc()).all()
 
     return render_template(
         'depenses.html', 
