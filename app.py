@@ -146,6 +146,19 @@ class WorkerPayment(db.Model):
     date = db.Column(db.Date, nullable=False, default=date.today)
     notes = db.Column(db.Text, nullable=True)
 
+class Expense(db.Model):
+    __tablename__ = 'expenses'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(120), nullable=False)
+    category = db.Column(db.String(50), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    date = db.Column(db.Date, nullable=False, default=date.today)
+    vendor = db.Column(db.String(100), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+
+    def __repr__(self):
+        return f'<Expense {self.title} - {self.amount} DT>'
 
 # --- ROUTES ---
 @app.route("/", methods=["GET", "POST"])
@@ -757,6 +770,44 @@ def update_payment_note():
     db.session.commit()
     
     return jsonify({"success": True})
+
+@app.route('/depenses', methods=['GET', 'POST'])
+def depenses():
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        category = request.form.get('category', '').strip()
+        amount_raw = request.form.get('amount', '0').strip()
+        vendor = request.form.get('vendor', '').strip()
+        date_str = request.form.get('date', '').strip()
+        notes = request.form.get('notes', '').strip()
+
+        try:
+            amount = float(amount_raw)
+        except ValueError:
+            amount = 0.0
+
+        try:
+            expense_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else date.today()
+        except ValueError:
+            expense_date = date.today()
+
+        if title and amount > 0:
+            new_expense = Expense(
+                title=title,
+                category=category,
+                amount=amount,
+                vendor=vendor,
+                date=expense_date,
+                notes=notes if notes else None
+            )
+            db.session.add(new_expense)
+            db.session.commit()
+            return redirect(url_for('depenses'))
+
+    expenses = Expense.query.order_by(Expense.date.desc()).all()
+    total_expenses = sum(e.amount for e in expenses)
+    return render_template('depenses.html', expenses=expenses, total_expenses=total_expenses)
+
 
 if __name__ == "__main__":
     with app.app_context():
