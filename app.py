@@ -886,6 +886,42 @@ def delete_category(category_id):
     flash("Catégorie supprimée avec succès.", "success")
     return redirect(url_for('depenses'))
 
+@app.route('/api/all_expense_events')
+def get_all_expense_events():
+    expenses = Expense.query.all()
+    all_categories = Category.query.all()
+    categories_dict = {cat.name: cat.color for cat in all_categories}
+    
+    events = []
+    for exp in expenses:
+        color = categories_dict.get(exp.category, '#6c757d')
+        events.append({
+            'id': f"exp_{exp.id}",
+            'title': exp.title,
+            'start': exp.date.strftime("%Y-%m-%d") if exp.date else "",
+            'color': color,
+            'textColor': '#ffffff'
+        })
+        
+    return jsonify(events)
+
+@app.route('/api/expense_details/<int:expense_id>')
+def get_expense_details(expense_id):
+    expense = Expense.query.get_or_404(expense_id)
+    all_categories = Category.query.all()
+    categories_dict = {cat.name: cat.color for cat in all_categories}
+    color = categories_dict.get(expense.category, '#6c757d')
+
+    return jsonify({
+        "id": expense.id,
+        "title": expense.title,
+        "category": expense.category,
+        "amount": f"{expense.amount:.2f}",
+        "date": expense.date.strftime("%d/%m/%Y") if expense.date else "",
+        "notes": expense.notes or "",
+        "color": color
+    })
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()

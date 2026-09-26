@@ -3,6 +3,34 @@
 {% block title %}Gestion des Dépenses{% endblock %}
 
 {% block content %}
+<!-- FullCalendar Library -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+<style>
+    /* FullCalendar custom text styling */
+    #expenseCalendar .fc-col-header-cell-cushion,
+    #expenseCalendar .fc-daygrid-day-number {
+        color: #212529 !important;
+        text-decoration: none !important;
+    }
+    #expenseCalendar .fc-toolbar-title {
+        color: #212529 !important;
+    }
+    .fc-event {
+        cursor: pointer;
+    }
+
+    /* Prevent FullCalendar grid overflow and scrollbars */
+    #expenseCalendar .fc-scroller {
+        overflow: hidden !important;
+    }
+
+    #expenseCalendar .fc-scroller-harness {
+        overflow: hidden !important;
+    }
+</style>
+
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
@@ -17,10 +45,9 @@
         </button>
     </div>
 
-   <!-- Filter Bar (Search + Date Filter Mode + Dynamic Pickers) -->
+    <!-- Filter Bar (Search + Date Filter Mode + Dynamic Pickers) -->
     <div class="card border-0 shadow-sm rounded-3 p-3 mb-4">
         <div class="row g-3 align-items-center mb-3">
-            <!-- Text Search Input -->
             <div class="col-12 col-md-6">
                 <div class="input-group">
                     <span class="input-group-text bg-light border-end-0">
@@ -30,7 +57,6 @@
                 </div>
             </div>
 
-            <!-- Date Filter Mode Select -->
             <div class="col-12 col-md-6" id="filterModeCol">
                 <div class="input-group">
                     <span class="input-group-text bg-light border-end-0">
@@ -45,22 +71,15 @@
                 </div>
             </div>
 
-            <!-- Dynamic Date Pickers Container -->
             <div class="col-12 col-md-3 d-none" id="dynamicPickerCol">
-                <!-- 1. Exact Date Picker -->
                 <div id="datePickerContainer" class="d-none">
                     <input type="date" id="filterExactDate" onchange="filterExpensesTable()" class="form-control bg-light">
                 </div>
-
-                <!-- 2. Exact Month Picker -->
                 <div id="monthPickerContainer" class="d-none">
                     <input type="month" id="filterExactMonth" onchange="filterExpensesTable()" class="form-control bg-light">
                 </div>
-
-                <!-- 3. Exact Year Select -->
                 <div id="yearPickerContainer" class="d-none">
                     <select id="filterExactYear" onchange="filterExpensesTable()" class="form-select bg-light">
-                        <!-- Populated dynamically by JS -->
                     </select>
                 </div>
             </div>
@@ -68,7 +87,7 @@
 
         <hr class="text-muted opacity-25 my-2">
 
-        <!-- Category Filter Bar (Pills) -->
+        <!-- Category Filter Bar -->
         <div class="d-flex align-items-center justify-content-between mb-2 mt-2">
             <span class="text-muted small fw-bold font-monospace text-uppercase">Filtrer par Catégorie</span>
             <div class="d-flex gap-2">
@@ -136,7 +155,7 @@
     </div>
 
     <!-- Expenses Table -->
-    <div class="card border-0 shadow-sm rounded-3 p-3">
+    <div class="card border-0 shadow-sm rounded-3 p-3 mb-4">
         <div class="table-responsive">
             <table class="table align-middle mb-0" id="expensesTable">
                 <thead class="table-light">
@@ -148,7 +167,6 @@
                         <th>Montant</th>
                     </tr>
                 </thead>
-               <!-- Expenses Table Body -->
                 <tbody>
                     {% for expense in expenses %}
                     <tr class="expense-row" 
@@ -181,6 +199,18 @@
                         </td>
                     </tr>
                 </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Annual Expense Calendar -->
+    <h4 class="fw-bold text-dark mb-3">
+        <i class="bi bi-calendar3 text-primary"></i> Calendrier des Dépenses
+    </h4>
+    <div class="card shadow-sm border-0 mb-4 rounded-3 p-3 bg-white">
+        <div id="expenseCalendar"></div>
+    </div>
+</div>
 
 <!-- Add Expense Modal -->
 <div class="modal fade" id="addExpenseModal" tabindex="-1" aria-hidden="true">
@@ -201,7 +231,6 @@
                         <input type="number" step="0.01" name="amount" class="form-control" required>
                     </div>
 
-                    <!-- Category Field Selection inside Modal -->
                     <div class="mb-3">
                         <label class="form-label mb-2 fw-semibold">Catégorie</label>
                         <input type="hidden" name="category" id="selected_category" value="{{ categories[0].name if categories else 'Matériaux' }}">
@@ -345,11 +374,8 @@ function toggleCategoryFilter(btnElement, categoryName) {
         activeCategories.add('ALL');
         
         document.querySelectorAll('.filter-pill').forEach(btn => {
-            const catColor = btn.getAttribute('data-color');
             if (btn.getAttribute('data-category') === 'ALL') {
                 btn.className = 'filter-pill btn rounded-pill px-3 py-1 btn-dark text-white active-filter';
-                btn.style.backgroundColor = '';
-                btn.style.color = '';
             } else {
                 btn.className = 'filter-pill btn rounded-pill border px-3 py-1 text-dark d-flex align-items-center gap-2';
                 btn.style.backgroundColor = 'transparent';
@@ -366,7 +392,6 @@ function toggleCategoryFilter(btnElement, categoryName) {
 
         if (activeCategories.has(categoryName)) {
             activeCategories.delete(categoryName);
-            const catColor = btnElement.getAttribute('data-color');
             btnElement.style.backgroundColor = 'transparent';
             btnElement.style.color = '#212529';
             const dot = btnElement.querySelector('.dot-indicator');
@@ -387,26 +412,6 @@ function toggleCategoryFilter(btnElement, categoryName) {
     }
 
     applyFilters();
-}
-
-function applyFilters() {
-    const rows = document.querySelectorAll('.expense-row');
-    let visibleCount = 0;
-
-    rows.forEach(row => {
-        const rowCategory = row.getAttribute('data-category');
-        if (activeCategories.has('ALL') || activeCategories.has(rowCategory)) {
-            row.style.display = '';
-            visibleCount++;
-        } else {
-            row.style.display = 'none';
-        }
-    });
-
-    const noMatch = document.getElementById('noMatchingRow');
-    if (noMatch) {
-        noMatch.style.display = (visibleCount === 0 && rows.length > 0) ? '' : 'none';
-    }
 }
 
 function selectModalCategory(buttonElement) {
@@ -432,11 +437,8 @@ function toggleDeleteMode() {
     const deleteForms = document.querySelectorAll('.delete-cat-form');
     const toggleBtn = document.getElementById('toggleDeleteModeBtn');
 
-    deleteForms.forEach(form => {
-        form.classList.toggle('d-none');
-    });
+    deleteForms.forEach(form => form.classList.toggle('d-none'));
 
-    // Toggle active state visual on the top red button
     if (toggleBtn.classList.contains('btn-outline-danger')) {
         toggleBtn.classList.remove('btn-outline-danger');
         toggleBtn.classList.add('btn-danger', 'text-white');
@@ -448,9 +450,7 @@ function toggleDeleteMode() {
 
 function showDeleteCategoryConfirm(deleteUrl) {
     const deleteForm = document.getElementById('deleteCategoryForm');
-    if (deleteForm) {
-        deleteForm.action = deleteUrl;
-    }
+    if (deleteForm) deleteForm.action = deleteUrl;
 
     const confirmModal = new bootstrap.Modal(document.getElementById('confirmDeleteCategoryModal'));
     confirmModal.show();
@@ -478,6 +478,7 @@ function toggleArchiveManager() {
 
 document.addEventListener("DOMContentLoaded", function () {
     populateYearDropdown();
+    initExpenseCalendar();
 });
 
 function populateYearDropdown() {
@@ -497,7 +498,6 @@ function populateYearDropdown() {
 
 function handleFilterModeChange() {
     const mode = document.getElementById('dateFilterMode').value;
-    
     const filterModeCol = document.getElementById('filterModeCol');
     const dynamicPickerCol = document.getElementById('dynamicPickerCol');
 
@@ -516,13 +516,9 @@ function handleFilterModeChange() {
         filterModeCol.className = 'col-12 col-md-3';
         dynamicPickerCol.classList.remove('d-none');
 
-        if (mode === 'date') {
-            dateContainer.classList.remove('d-none');
-        } else if (mode === 'month') {
-            monthContainer.classList.remove('d-none');
-        } else if (mode === 'year') {
-            yearContainer.classList.remove('d-none');
-        }
+        if (mode === 'date') dateContainer.classList.remove('d-none');
+        else if (mode === 'month') monthContainer.classList.remove('d-none');
+        else if (mode === 'year') yearContainer.classList.remove('d-none');
     }
 
     filterExpensesTable();
@@ -544,13 +540,9 @@ function filterExpensesTable() {
         const rowCategory = row.getAttribute('data-category');
         const dateVal = row.getAttribute('data-date') || '';
 
-        // Check text search matching
         const matchesSearch = textContent.includes(searchInput);
-
-        // Check category pill matching
         const matchesCategory = activeCategories.has('ALL') || activeCategories.has(rowCategory);
 
-        // Check date matching
         let matchesDate = true;
         if (filterMode === 'date') {
             matchesDate = selectedExactDate ? (dateVal === selectedExactDate) : true;
@@ -574,37 +566,77 @@ function filterExpensesTable() {
     }
 }
 
-// Update applyFilters to bridge category selection into main table filter logic
 function applyFilters() {
     filterExpensesTable();
 }
 
-function openExpenseDetailFromRow(rowElem) {
-    const title = rowElem.getAttribute('data-title');
-    const date = rowElem.getAttribute('data-date-display');
-    const category = rowElem.getAttribute('data-category');
-    const amount = rowElem.getAttribute('data-amount');
-    const color = rowElem.getAttribute('data-color');
-    const notes = rowElem.getAttribute('data-notes');
-
-    document.getElementById('detailExpenseTitle').textContent = title || "Détails de la dépense";
-    document.getElementById('detailExpenseDate').textContent = date || "---";
-    document.getElementById('detailExpenseAmount').textContent = `${amount} DT`;
+function openExpenseDetailModal(data) {
+    document.getElementById('detailExpenseTitle').textContent = data.title || "Détails de la dépense";
+    document.getElementById('detailExpenseDate').textContent = data.date || "---";
+    document.getElementById('detailExpenseAmount').textContent = `${data.amount} DT`;
     
     const catBadge = document.getElementById('detailExpenseCategory');
     if (catBadge) {
-        catBadge.textContent = category || "Autre";
-        catBadge.style.backgroundColor = color || "#6c757d";
+        catBadge.textContent = data.category || "Autre";
+        catBadge.style.backgroundColor = data.color || "#6c757d";
     }
 
     const notesElem = document.getElementById('detailExpenseNotes');
     if (notesElem) {
-        notesElem.textContent = (notes && notes.trim() !== '') ? notes : "Aucune note.";
+        notesElem.textContent = (data.notes && data.notes.trim() !== '') ? data.notes : "Aucune note.";
     }
 
     const modal = new bootstrap.Modal(document.getElementById('expenseDetailModal'));
     modal.show();
 }
 
+function openExpenseDetailFromRow(rowElem) {
+    openExpenseDetailModal({
+        title: rowElem.getAttribute('data-title'),
+        date: rowElem.getAttribute('data-date-display'),
+        category: rowElem.getAttribute('data-category'),
+        amount: rowElem.getAttribute('data-amount'),
+        color: rowElem.getAttribute('data-color'),
+        notes: rowElem.getAttribute('data-notes')
+    });
+}
+
+function initExpenseCalendar() {
+    const calendarEl = document.getElementById('expenseCalendar');
+    if (!calendarEl) return;
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'fr',
+        height: 'auto',
+        dayMaxEvents: 2,
+        displayEventTime: false,
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: ''
+        },
+        buttonText: {
+            today: "Aujourd'hui"
+        },
+        events: function(fetchInfo, successCallback, failureCallback) {
+            fetch('/api/all_expense_events')
+                .then(res => res.json())
+                .then(data => successCallback(data))
+                .catch(err => failureCallback(err));
+        },
+        eventClick: function(info) {
+            if (info.event.id) {
+                const expenseId = info.event.id.replace("exp_", "");
+                fetch(`/api/expense_details/${expenseId}`)
+                    .then(res => res.json())
+                    .then(data => openExpenseDetailModal(data))
+                    .catch(err => console.error("Error loading expense details:", err));
+            }
+        }
+    });
+
+    calendar.render();
+}
 </script>
 {% endblock %}
