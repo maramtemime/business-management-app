@@ -824,10 +824,13 @@ def depenses():
             db.session.commit()
             return redirect(url_for('depenses'))
 
-    # Active categories for filter pills and select dropdowns
-    categories = Category.query.filter_by(is_archived=False).all()
+    # Non-archived categories for primary filter pills & modal dropdown
+    active_categories = Category.query.filter_by(is_archived=False).all()
+    
+    # Archived categories for settings management view
+    archived_categories = Category.query.filter_by(is_archived=True).all()
 
-    # Dictionary of ALL categories (including archived) for expense list badge colors
+    # Dictionary of ALL categories for table badge colors
     all_categories = Category.query.all()
     categories_dict = {cat.name: cat.color for cat in all_categories}
 
@@ -836,9 +839,30 @@ def depenses():
     return render_template(
         'depenses.html', 
         expenses=expenses, 
-        categories=categories, 
+        categories=active_categories,
+        archived_categories=archived_categories,
         categories_dict=categories_dict
     )
+
+# Restore archived category back to active
+@app.route('/restore_category/<int:category_id>', methods=['POST'])
+def restore_category(category_id):
+    category = Category.query.get_or_404(category_id)
+    category.is_archived = False
+    db.session.commit()
+    return redirect(url_for('depenses'))
+
+# Permanently delete category and set associated expenses to 'Autre'
+@app.route('/delete_category_permanent/<int:category_id>', methods=['POST'])
+def delete_category_permanent(category_id):
+    category = Category.query.get_or_404(category_id)
+    
+    # Update expenses linked to this category name to 'Autre'
+    Expense.query.filter_by(category=category.name).update({'category': 'Autre'})
+    
+    db.session.delete(category)
+    db.session.commit()
+    return redirect(url_for('depenses'))
 
 @app.route('/add_category', methods=['POST'])
 def add_category():

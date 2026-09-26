@@ -17,12 +17,21 @@
         </button>
     </div>
 
-    <!-- Category Filter Bar -->
+   <!-- Category Filter Bar -->
 <div class="card border-0 shadow-sm rounded-3 p-3 mb-4">
     <div class="d-flex align-items-center justify-content-between mb-2">
         <span class="text-muted small fw-bold font-monospace text-uppercase">Filtrer par Catégorie</span>
         <div class="d-flex gap-2">
-            <!-- Red Edit/Delete Mode Toggle Button -->
+            <!-- Settings Gear Button -->
+            <button type="button" 
+                    id="toggleArchiveManagerBtn" 
+                    class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center" 
+                    style="width: 31px; height: 31px;" 
+                    onclick="toggleArchiveManager()" 
+                    title="Catégories archivées">
+                <i class="bi bi-gear-fill"></i>
+            </button>
+            <!-- Red Delete Mode Toggle Button -->
             <button type="button" 
                     id="toggleDeleteModeBtn" 
                     class="btn btn-sm btn-outline-danger rounded-circle d-flex align-items-center justify-content-center" 
@@ -43,6 +52,7 @@
         </div>
     </div>
     
+    <!-- Active Category Pills -->
     <div class="d-flex flex-wrap gap-2 align-items-center" id="filterPillContainer">
         <!-- ALL Pill -->
         <button type="button" 
@@ -52,7 +62,6 @@
             Tous
         </button>
 
-        <!-- Dynamic Category Pills -->
         {% for cat in categories %}
         <div class="d-inline-flex align-items-center position-relative">
             <button type="button" 
@@ -65,17 +74,53 @@
                 <span>{{ cat.name }}</span>
             </button>
 
-            <!-- Small Transparent Red Delete Button -->
+            <!-- Soft Delete Button (Hides into archive) -->
             <div class="delete-cat-form d-none position-absolute top-0 end-0 translate-middle-y" style="margin-top: 2px;">
                 <button type="button" 
                         class="btn btn-sm text-danger p-0 border-0 bg-transparent" 
-                        title="Supprimer"
+                        title="Archiver"
                         onclick="showDeleteCategoryConfirm('{{ url_for('delete_category', category_id=cat.id) }}')">
                     <i class="bi bi-x-circle-fill" style="font-size: 14px; background: white; border-radius: 50%;"></i>
                 </button>
             </div>
         </div>
         {% endfor %}
+    </div>
+
+    <!-- Archived Categories Container (Hidden by default) -->
+    <div id="archivedCategoryContainer" class="d-none mt-3 pt-3 border-top">
+        <span class="text-muted small fw-bold font-monospace text-uppercase d-block mb-2">Catégories Archivées</span>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            {% for cat in archived_categories %}
+            <div class="d-inline-flex align-items-center position-relative">
+                <button type="button" 
+                        class="filter-pill btn rounded-pill border px-3 py-1 text-secondary opacity-75 d-flex align-items-center gap-2" 
+                        data-category="{{ cat.name }}"
+                        data-color="{{ cat.color }}"
+                        style="border-color: {{ cat.color }} !important; border-style: dashed !important;"
+                        onclick="toggleCategoryFilter(this, '{{ cat.name }}')">
+                    <span class="dot-indicator" style="width: 8px; height: 8px; border-radius: 50%; background-color: {{ cat.color }}; display: inline-block;"></span>
+                    <span>{{ cat.name }}</span>
+                </button>
+
+                <!-- Action Controls (Visible when Gear button active) -->
+                <div class="archive-action-btns d-none position-absolute top-0 end-0 translate-middle-y d-flex gap-1" style="margin-top: 2px;">
+                    <!-- Restore (+) Button -->
+                    <form action="{{ url_for('restore_category', category_id=cat.id) }}" method="POST" class="d-inline">
+                        <button type="submit" class="btn btn-sm text-success p-0 border-0 bg-transparent" title="Restaurer">
+                            <i class="bi bi-plus-circle-fill" style="font-size: 14px; background: white; border-radius: 50%;"></i>
+                        </button>
+                    </form>
+                    <!-- Permanent Delete (X) Button -->
+                    <button type="button" class="btn btn-sm text-danger p-0 border-0 bg-transparent" title="Supprimer définitivement" onclick="showDeleteCategoryConfirm('{{ url_for('delete_category_permanent', category_id=cat.id) }}')">
+                        <i class="bi bi-x-circle-fill" style="font-size: 14px; background: white; border-radius: 50%;"></i>
+                    </button>
+                </div>
+            </div>
+            {% else %}
+            <span class="text-muted small italic">Aucune catégorie archivée.</span>
+            {% endfor %}
+        </div>
     </div>
 </div>
 
@@ -357,6 +402,26 @@ function showDeleteCategoryConfirm(deleteUrl) {
 
     const confirmModal = new bootstrap.Modal(document.getElementById('confirmDeleteCategoryModal'));
     confirmModal.show();
+}
+
+function toggleArchiveManager() {
+    const archiveContainer = document.getElementById('archivedCategoryContainer');
+    const archiveActions = document.querySelectorAll('.archive-action-btns');
+    const gearBtn = document.getElementById('toggleArchiveManagerBtn');
+
+    const isHidden = archiveContainer.classList.contains('d-none');
+
+    if (isHidden) {
+        archiveContainer.classList.remove('d-none');
+        archiveActions.forEach(el => el.classList.remove('d-none'));
+        gearBtn.classList.remove('btn-outline-secondary');
+        gearBtn.classList.add('btn-secondary', 'text-white');
+    } else {
+        archiveContainer.classList.add('d-none');
+        archiveActions.forEach(el => el.classList.add('d-none'));
+        gearBtn.classList.remove('btn-secondary', 'text-white');
+        gearBtn.classList.add('btn-outline-secondary');
+    }
 }
 
 </script>
