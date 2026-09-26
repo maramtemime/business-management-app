@@ -826,9 +826,13 @@ def depenses():
     categories = Category.query.all()
     categories_dict = {cat.name: cat.color for cat in categories}
     expenses = Expense.query.order_by(Expense.date.desc()).all()
-    total_expenses = sum(e.amount for e in expenses)
 
-    return render_template('depenses.html', expenses=expenses, total_expenses=total_expenses, categories=categories, categories_dict=categories_dict)
+    return render_template(
+        'depenses.html', 
+        expenses=expenses, 
+        categories=categories, 
+        categories_dict=categories_dict
+    )
 
 @app.route('/add_category', methods=['POST'])
 def add_category():
@@ -842,6 +846,17 @@ def add_category():
             db.session.add(new_cat)
             db.session.commit()
 
+    return redirect(url_for('depenses'))
+
+@app.route('/delete_category/<int:category_id>', methods=['POST'])
+def delete_category(category_id):
+    category = Category.query.get_or_404(category_id)
+    
+    # Optionally: update existing expenses under this category to 'Autre'
+    Expense.query.filter_by(category=category.name).update({'category': 'Autre'})
+    
+    db.session.delete(category)
+    db.session.commit()
     return redirect(url_for('depenses'))
 
 if __name__ == "__main__":

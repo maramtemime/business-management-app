@@ -4,30 +4,85 @@
 
 {% block content %}
 <div class="container-fluid py-4">
-    <h2 class="fw-bold text-dark mb-1">
-        <i class="bi bi-wallet-fill text-primary"></i> Gestion des Dépenses
-    </h2>
-    <p class="text-muted small mb-4">Suivez et enregistrez toutes vos dépenses professionnelles.</p>
-    
-    <button class="btn btn-primary px-4 py-2 rounded-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
-        <i class="bi bi-plus-lg me-1"></i> Ajouter une dépense
-    </button>
-</div>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="fw-bold text-dark mb-1">
+                <i class="bi bi-wallet-fill text-primary"></i> Gestion des Dépenses
+            </h2>
+            <p class="text-muted small mb-0">Suivez et filtrez vos dépenses professionnelles par catégorie.</p>
+        </div>
+        
+        <button class="btn btn-primary px-4 py-2 rounded-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+            <i class="bi bi-plus-lg me-1"></i> Ajouter une dépense
+        </button>
+    </div>
 
-    <!-- Summary Cards -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white">
-                <span class="text-muted fs-7 font-monospace fw-semibold">TOTAL DÉPENSES</span>
-                <h3 class="fw-bold text-danger my-1">{{ "%.2f"|format(total_expenses) }} DT</h3>
-            </div>
+    <!-- Category Filter Bar -->
+<div class="card border-0 shadow-sm rounded-3 p-3 mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <span class="text-muted small fw-bold font-monospace text-uppercase">Filtrer par Catégorie</span>
+        <div class="d-flex gap-2">
+            <!-- Red Edit/Delete Mode Toggle Button -->
+            <button type="button" 
+                    id="toggleDeleteModeBtn" 
+                    class="btn btn-sm btn-outline-danger rounded-circle d-flex align-items-center justify-content-center" 
+                    style="width: 31px; height: 31px;" 
+                    onclick="toggleDeleteMode()" 
+                    title="Gérer/Supprimer des catégories">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            <!-- Add Category Button -->
+            <button type="button" 
+                    class="btn btn-sm btn-outline-primary rounded-circle d-flex align-items-center justify-content-center" 
+                    style="width: 31px; height: 31px;" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#addCategoryModal" 
+                    title="Créer une catégorie">
+                <i class="bi bi-plus-lg"></i>
+            </button>
         </div>
     </div>
+    
+    <div class="d-flex flex-wrap gap-2 align-items-center" id="filterPillContainer">
+        <!-- ALL Pill -->
+        <button type="button" 
+                class="filter-pill btn rounded-pill px-3 py-1 btn-dark text-white active-filter" 
+                data-category="ALL"
+                onclick="toggleCategoryFilter(this, 'ALL')">
+            Tous
+        </button>
+
+        <!-- Dynamic Category Pills -->
+        {% for cat in categories %}
+        <div class="d-inline-flex align-items-center position-relative">
+            <button type="button" 
+                    class="filter-pill btn rounded-pill border px-3 py-1 text-dark d-flex align-items-center gap-2" 
+                    data-category="{{ cat.name }}"
+                    data-color="{{ cat.color }}"
+                    style="border-color: {{ cat.color }} !important;"
+                    onclick="toggleCategoryFilter(this, '{{ cat.name }}')">
+                <span class="dot-indicator" style="width: 8px; height: 8px; border-radius: 50%; background-color: {{ cat.color }}; display: inline-block;"></span>
+                <span>{{ cat.name }}</span>
+            </button>
+
+            <!-- Small Transparent Red Delete Button -->
+            <div class="delete-cat-form d-none position-absolute top-0 end-0 translate-middle-y" style="margin-top: 2px;">
+                <button type="button" 
+                        class="btn btn-sm text-danger p-0 border-0 bg-transparent" 
+                        title="Supprimer"
+                        onclick="showDeleteCategoryConfirm('{{ url_for('delete_category', category_id=cat.id) }}')">
+                    <i class="bi bi-x-circle-fill" style="font-size: 14px; background: white; border-radius: 50%;"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
 
     <!-- Expenses Table -->
     <div class="card border-0 shadow-sm rounded-3 p-3">
         <div class="table-responsive">
-            <table class="table align-middle mb-0">
+            <table class="table align-middle mb-0" id="expensesTable">
                 <thead class="table-light">
                     <tr>
                         <th>Date</th>
@@ -40,7 +95,7 @@
                 </thead>
                 <tbody>
                     {% for expense in expenses %}
-                    <tr>
+                    <tr class="expense-row" data-category="{{ expense.category }}">
                         <td>{{ expense.date.strftime('%d/%m/%Y') }}</td>
                         <td class="fw-semibold">{{ expense.title }}</td>
                         <td>
@@ -53,10 +108,13 @@
                         <td>{{ expense.notes or '-' }}</td>
                     </tr>
                     {% else %}
-                    <tr>
+                    <tr id="emptyRow">
                         <td colspan="6" class="text-center py-4 text-muted">Aucune dépense enregistrée.</td>
                     </tr>
                     {% endfor %}
+                    <tr id="noMatchingRow" style="display: none;">
+                        <td colspan="6" class="text-center py-4 text-muted">Aucune dépense trouvée pour les catégories sélectionnées.</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -82,25 +140,19 @@
                         <input type="number" step="0.01" name="amount" class="form-control" required>
                     </div>
 
-                    <!-- Interactive Pill List Category Field -->
+                    <!-- Category Field Selection inside Modal -->
                     <div class="mb-3">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <label class="form-label mb-0 fw-semibold">Catégorie</label>
-                            <button type="button" class="btn btn-sm btn-outline-primary rounded-circle" data-bs-toggle="modal" data-bs-target="#addCategoryModal" title="Créer une catégorie">
-                                <i class="bi bi-plus-lg"></i>
-                            </button>
-                        </div>
+                        <label class="form-label mb-2 fw-semibold">Catégorie</label>
+                        <input type="hidden" name="category" id="selected_category" value="{{ categories[0].name if categories else 'Matériaux' }}">
 
-                        <input type="hidden" name="category" id="selected_category" value="Matériaux">
-
-                        <div class="d-flex flex-wrap gap-2 pt-1" id="categoryPillContainer">
+                        <div class="d-flex flex-wrap gap-2 pt-1">
                             {% for cat in categories %}
                             <button type="button" 
-                                    class="category-pill btn rounded-pill border px-3 py-1 text-dark d-flex align-items-center gap-2 {% if loop.first %}active-pill{% endif %}"
+                                    class="modal-category-pill btn rounded-pill border px-3 py-1 text-dark d-flex align-items-center gap-2 {% if loop.first %}active-modal-pill{% endif %}"
                                     data-category-name="{{ cat.name }}"
                                     data-color="{{ cat.color }}"
                                     style="border-color: {{ cat.color }} !important; {% if loop.first %}background-color: {{ cat.color }}; color: white !important;{% endif %}"
-                                    onclick="selectCategory(this)">
+                                    onclick="selectModalCategory(this)">
                                 <span class="dot-indicator" style="width: 8px; height: 8px; border-radius: 50%; background-color: {{ cat.color }}; display: {% if loop.first %}none{% else %}inline-block{% endif %};"></span>
                                 <span>{{ cat.name }}</span>
                             </button>
@@ -157,15 +209,116 @@
     </div>
 </div>
 
+<!-- Custom Styled Delete Category Confirmation Modal -->
+<div class="modal fade" id="confirmDeleteCategoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4 p-3 text-center">
+            <div class="modal-body p-3">
+                <div class="text-warning mb-3">
+                    <i class="bi bi-exclamation-triangle-fill fs-1"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2">Confirmer la suppression</h5>
+                <p class="text-muted small mb-4">
+                    Voulez-vous vraiment supprimer cette catégorie ?<br>Cette action est irréversible.
+                </p>
+                
+                <div class="d-flex justify-content-center gap-2">
+                    <button type="button" class="btn btn-light px-4 rounded-3 text-dark fw-medium" data-bs-dismiss="modal">
+                        Annuler
+                    </button>
+                    <form id="deleteCategoryForm" method="POST" action="" style="margin: 0;">
+                        <button type="submit" class="btn btn-primary px-4 rounded-3 fw-medium">
+                            Confirmer
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-function selectCategory(buttonElement) {
+let activeCategories = new Set(['ALL']);
+
+function toggleCategoryFilter(btnElement, categoryName) {
+    const allBtn = document.querySelector('.filter-pill[data-category="ALL"]');
+
+    if (categoryName === 'ALL') {
+        activeCategories.clear();
+        activeCategories.add('ALL');
+        
+        document.querySelectorAll('.filter-pill').forEach(btn => {
+            const catColor = btn.getAttribute('data-color');
+            if (btn.getAttribute('data-category') === 'ALL') {
+                btn.className = 'filter-pill btn rounded-pill px-3 py-1 btn-dark text-white active-filter';
+                btn.style.backgroundColor = '';
+                btn.style.color = '';
+            } else {
+                btn.className = 'filter-pill btn rounded-pill border px-3 py-1 text-dark d-flex align-items-center gap-2';
+                btn.style.backgroundColor = 'transparent';
+                btn.style.color = '#212529';
+                const dot = btn.querySelector('.dot-indicator');
+                if (dot) dot.style.display = 'inline-block';
+            }
+        });
+    } else {
+        if (activeCategories.has('ALL')) {
+            activeCategories.delete('ALL');
+            allBtn.className = 'filter-pill btn rounded-pill border px-3 py-1 text-dark';
+        }
+
+        if (activeCategories.has(categoryName)) {
+            activeCategories.delete(categoryName);
+            const catColor = btnElement.getAttribute('data-color');
+            btnElement.style.backgroundColor = 'transparent';
+            btnElement.style.color = '#212529';
+            const dot = btnElement.querySelector('.dot-indicator');
+            if (dot) dot.style.display = 'inline-block';
+        } else {
+            activeCategories.add(categoryName);
+            const catColor = btnElement.getAttribute('data-color');
+            btnElement.style.backgroundColor = catColor;
+            btnElement.style.color = '#ffffff';
+            const dot = btnElement.querySelector('.dot-indicator');
+            if (dot) dot.style.display = 'none';
+        }
+
+        if (activeCategories.size === 0) {
+            activeCategories.add('ALL');
+            allBtn.className = 'filter-pill btn rounded-pill px-3 py-1 btn-dark text-white active-filter';
+        }
+    }
+
+    applyFilters();
+}
+
+function applyFilters() {
+    const rows = document.querySelectorAll('.expense-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const rowCategory = row.getAttribute('data-category');
+        if (activeCategories.has('ALL') || activeCategories.has(rowCategory)) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    const noMatch = document.getElementById('noMatchingRow');
+    if (noMatch) {
+        noMatch.style.display = (visibleCount === 0 && rows.length > 0) ? '' : 'none';
+    }
+}
+
+function selectModalCategory(buttonElement) {
     const selectedName = buttonElement.getAttribute('data-category-name');
     const selectedColor = buttonElement.getAttribute('data-color');
 
     document.getElementById('selected_category').value = selectedName;
 
-    document.querySelectorAll('.category-pill').forEach(btn => {
-        const color = btn.getAttribute('data-color');
+    document.querySelectorAll('.modal-category-pill').forEach(btn => {
         btn.style.backgroundColor = 'transparent';
         btn.style.color = '#212529';
         const dot = btn.querySelector('.dot-indicator');
@@ -177,5 +330,34 @@ function selectCategory(buttonElement) {
     const activeDot = buttonElement.querySelector('.dot-indicator');
     if (activeDot) activeDot.style.display = 'none';
 }
+
+function toggleDeleteMode() {
+    const deleteForms = document.querySelectorAll('.delete-cat-form');
+    const toggleBtn = document.getElementById('toggleDeleteModeBtn');
+
+    deleteForms.forEach(form => {
+        form.classList.toggle('d-none');
+    });
+
+    // Toggle active state visual on the top red button
+    if (toggleBtn.classList.contains('btn-outline-danger')) {
+        toggleBtn.classList.remove('btn-outline-danger');
+        toggleBtn.classList.add('btn-danger', 'text-white');
+    } else {
+        toggleBtn.classList.remove('btn-danger', 'text-white');
+        toggleBtn.classList.add('btn-outline-danger');
+    }
+}
+
+function showDeleteCategoryConfirm(deleteUrl) {
+    const deleteForm = document.getElementById('deleteCategoryForm');
+    if (deleteForm) {
+        deleteForm.action = deleteUrl;
+    }
+
+    const confirmModal = new bootstrap.Modal(document.getElementById('confirmDeleteCategoryModal'));
+    confirmModal.show();
+}
+
 </script>
 {% endblock %}
