@@ -574,6 +574,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         locale: 'fr',
+        dayMaxEvents: 2, // Limits visible events per day cell before displaying "+X more"
+        moreLinkText: function(n) {
+            return '+' + n + ' more'; // Formats text as "+4 more"
+        },
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',

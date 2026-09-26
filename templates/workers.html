@@ -922,6 +922,12 @@ document.addEventListener("DOMContentLoaded", function() {
             initialView: 'dayGridMonth',
             locale: 'fr',
             displayEventTime: false,
+
+            dayMaxEvents: 2, // Limits visible events per day cell to 2 before showing "+X more"
+            moreLinkText: function(n) {
+                return '+' + n + ' more'; // Formats link text exactly as "+4 more"
+            }, 
+            
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
