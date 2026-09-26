@@ -65,7 +65,7 @@
                     <select id="dateFilterMode" onchange="handleFilterModeChange()" class="form-select border-start-0 bg-light">
                         <option value="all">Toutes les dates</option>
                         <option value="date">Date spécifique (JJ/MM/AAAA)</option>
-                        <option value="month">Mois entier</option>
+                        <option value="month" selected>Mois entier</option>
                         <option value="year">Année entière</option>
                     </select>
                 </div>
@@ -366,6 +366,148 @@
 <script>
 let activeCategories = new Set(['ALL']);
 
+document.addEventListener("DOMContentLoaded", function () {
+    // 1. Initialize and render FullCalendar
+    initExpenseCalendar();
+
+    // 2. Populate year selector dropdown
+    populateYearDropdown();
+
+    // 3. Set default date filter mode to 'month'
+    const dateFilterMode = document.getElementById('dateFilterMode');
+    if (dateFilterMode) {
+        dateFilterMode.value = 'month';
+    }
+
+    // 4. Set current year-month (YYYY-MM) in the month input
+    const monthInput = document.getElementById('filterExactMonth');
+    if (monthInput) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        monthInput.value = `${year}-${month}`;
+    }
+
+    // 5. Adjust layout column visibility without resetting calendar
+    handleFilterModeChange();
+});
+
+function initExpenseCalendar() {
+    const calendarEl = document.getElementById('expenseCalendar');
+    if (!calendarEl) return;
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'fr',
+        height: 'auto',
+        dayMaxEvents: 2,
+        moreLinkText: function(n) {
+            return '+' + n + ' more';
+        },
+        displayEventTime: false,
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: ''
+        },
+        buttonText: {
+            today: "Aujourd'hui"
+        },
+        events: function(fetchInfo, successCallback, failureCallback) {
+            fetch('/api/all_expense_events')
+                .then(res => res.json())
+                .then(data => successCallback(data))
+                .catch(err => failureCallback(err));
+        },
+        eventClick: function(info) {
+            if (info.event.id) {
+                const expenseId = info.event.id.replace("exp_", "");
+                fetch(`/api/expense_details/${expenseId}`)
+                    .then(res => res.json())
+                    .then(data => openExpenseDetailModal(data))
+                    .catch(err => console.error("Error loading expense details:", err));
+            }
+        }
+    });
+
+    calendar.render();
+}
+
+function filterExpensesTable() {
+    const searchInput = document.getElementById('expenseSearch') ? document.getElementById('expenseSearch').value.toLowerCase().trim() : '';
+    const filterMode = document.getElementById('dateFilterMode') ? document.getElementById('dateFilterMode').value : 'all';
+    
+    const selectedExactDate = document.getElementById('filterExactDate') ? document.getElementById('filterExactDate').value : '';
+    const selectedExactMonth = document.getElementById('filterExactMonth') ? document.getElementById('filterExactMonth').value : '';
+    const selectedExactYear = document.getElementById('filterExactYear') ? document.getElementById('filterExactYear').value : '';
+
+    const tableRows = document.querySelectorAll('#expensesTable tbody tr.expense-row');
+    let visibleCount = 0;
+
+    tableRows.forEach(row => {
+        const textContent = row.textContent.toLowerCase();
+        const dateVal = row.getAttribute('data-date') || ''; // YYYY-MM-DD
+        const catVal = row.getAttribute('data-category') || '';
+
+        const matchesSearch = textContent.includes(searchInput);
+
+        let matchesDate = true;
+        if (filterMode === 'date' && selectedExactDate) {
+            matchesDate = (dateVal === selectedExactDate);
+        } else if (filterMode === 'month' && selectedExactMonth) {
+            matchesDate = dateVal.startsWith(selectedExactMonth);
+        } else if (filterMode === 'year' && selectedExactYear) {
+            matchesDate = dateVal.startsWith(selectedExactYear);
+        }
+
+        let matchesCategory = activeCategories.has('ALL') || activeCategories.has(catVal);
+
+        if (matchesSearch && matchesDate && matchesCategory) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    const noResultsRow = document.getElementById('noResultsRow');
+    if (noResultsRow) {
+        if (visibleCount === 0) {
+            noResultsRow.classList.remove('d-none');
+        } else {
+            noResultsRow.classList.add('d-none');
+        }
+    }
+}
+
+function handleFilterModeChange() {
+    const mode = document.getElementById('dateFilterMode').value;
+    const filterModeCol = document.getElementById('filterModeCol');
+    const dynamicPickerCol = document.getElementById('dynamicPickerCol');
+
+    const dateContainer = document.getElementById('datePickerContainer');
+    const monthContainer = document.getElementById('monthPickerContainer');
+    const yearContainer = document.getElementById('yearPickerContainer');
+
+    dateContainer.classList.add('d-none');
+    monthContainer.classList.add('d-none');
+    yearContainer.classList.add('d-none');
+
+    if (mode === 'all') {
+        filterModeCol.className = 'col-12 col-md-6';
+        dynamicPickerCol.classList.add('d-none');
+    } else {
+        filterModeCol.className = 'col-12 col-md-3';
+        dynamicPickerCol.classList.remove('d-none');
+
+        if (mode === 'date') dateContainer.classList.remove('d-none');
+        else if (mode === 'month') monthContainer.classList.remove('d-none');
+        else if (mode === 'year') yearContainer.classList.remove('d-none');
+    }
+
+    filterExpensesTable();
+}
+
 function toggleCategoryFilter(btnElement, categoryName) {
     const allBtn = document.querySelector('.filter-pill[data-category="ALL"]');
 
@@ -411,7 +553,22 @@ function toggleCategoryFilter(btnElement, categoryName) {
         }
     }
 
-    applyFilters();
+    filterExpensesTable();
+}
+
+function populateYearDropdown() {
+    const yearSelect = document.getElementById('filterExactYear');
+    if (!yearSelect) return;
+
+    const currentYear = new Date().getFullYear();
+    yearSelect.innerHTML = '';
+
+    for (let year = currentYear; year >= currentYear - 5; year--) {
+        const opt = document.createElement('option');
+        opt.value = String(year);
+        opt.textContent = year;
+        yearSelect.appendChild(opt);
+    }
 }
 
 function selectModalCategory(buttonElement) {
@@ -476,100 +633,6 @@ function toggleArchiveManager() {
     }
 }
 
-document.addEventListener("DOMContentLoaded", function () {
-    populateYearDropdown();
-    initExpenseCalendar();
-});
-
-function populateYearDropdown() {
-    const yearSelect = document.getElementById('filterExactYear');
-    if (!yearSelect) return;
-
-    const currentYear = new Date().getFullYear();
-    yearSelect.innerHTML = '';
-
-    for (let year = currentYear; year >= currentYear - 5; year--) {
-        const opt = document.createElement('option');
-        opt.value = String(year);
-        opt.textContent = year;
-        yearSelect.appendChild(opt);
-    }
-}
-
-function handleFilterModeChange() {
-    const mode = document.getElementById('dateFilterMode').value;
-    const filterModeCol = document.getElementById('filterModeCol');
-    const dynamicPickerCol = document.getElementById('dynamicPickerCol');
-
-    const dateContainer = document.getElementById('datePickerContainer');
-    const monthContainer = document.getElementById('monthPickerContainer');
-    const yearContainer = document.getElementById('yearPickerContainer');
-
-    dateContainer.classList.add('d-none');
-    monthContainer.classList.add('d-none');
-    yearContainer.classList.add('d-none');
-
-    if (mode === 'all') {
-        filterModeCol.className = 'col-12 col-md-6';
-        dynamicPickerCol.classList.add('d-none');
-    } else {
-        filterModeCol.className = 'col-12 col-md-3';
-        dynamicPickerCol.classList.remove('d-none');
-
-        if (mode === 'date') dateContainer.classList.remove('d-none');
-        else if (mode === 'month') monthContainer.classList.remove('d-none');
-        else if (mode === 'year') yearContainer.classList.remove('d-none');
-    }
-
-    filterExpensesTable();
-}
-
-function filterExpensesTable() {
-    const searchInput = document.getElementById('expenseSearch').value.toLowerCase().trim();
-    const filterMode = document.getElementById('dateFilterMode').value;
-    const rows = document.querySelectorAll('.expense-row');
-
-    const selectedExactDate = document.getElementById('filterExactDate').value;
-    const selectedExactMonth = document.getElementById('filterExactMonth').value;
-    const selectedExactYear = document.getElementById('filterExactYear').value;
-
-    let visibleCount = 0;
-
-    rows.forEach(row => {
-        const textContent = row.textContent.toLowerCase();
-        const rowCategory = row.getAttribute('data-category');
-        const dateVal = row.getAttribute('data-date') || '';
-
-        const matchesSearch = textContent.includes(searchInput);
-        const matchesCategory = activeCategories.has('ALL') || activeCategories.has(rowCategory);
-
-        let matchesDate = true;
-        if (filterMode === 'date') {
-            matchesDate = selectedExactDate ? (dateVal === selectedExactDate) : true;
-        } else if (filterMode === 'month') {
-            matchesDate = selectedExactMonth ? dateVal.startsWith(selectedExactMonth) : true;
-        } else if (filterMode === 'year') {
-            matchesDate = selectedExactYear ? dateVal.startsWith(selectedExactYear) : true;
-        }
-
-        if (matchesSearch && matchesCategory && matchesDate) {
-            row.style.display = '';
-            visibleCount++;
-        } else {
-            row.style.display = 'none';
-        }
-    });
-
-    const noResultsRow = document.getElementById('noResultsRow');
-    if (noResultsRow) {
-        noResultsRow.classList.toggle('d-none', visibleCount > 0 || rows.length === 0);
-    }
-}
-
-function applyFilters() {
-    filterExpensesTable();
-}
-
 function openExpenseDetailModal(data) {
     document.getElementById('detailExpenseTitle').textContent = data.title || "Détails de la dépense";
     document.getElementById('detailExpenseDate').textContent = data.date || "---";
@@ -599,44 +662,6 @@ function openExpenseDetailFromRow(rowElem) {
         color: rowElem.getAttribute('data-color'),
         notes: rowElem.getAttribute('data-notes')
     });
-}
-
-function initExpenseCalendar() {
-    const calendarEl = document.getElementById('expenseCalendar');
-    if (!calendarEl) return;
-
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
-        locale: 'fr',
-        height: 'auto',
-        dayMaxEvents: 2,
-        displayEventTime: false,
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: ''
-        },
-        buttonText: {
-            today: "Aujourd'hui"
-        },
-        events: function(fetchInfo, successCallback, failureCallback) {
-            fetch('/api/all_expense_events')
-                .then(res => res.json())
-                .then(data => successCallback(data))
-                .catch(err => failureCallback(err));
-        },
-        eventClick: function(info) {
-            if (info.event.id) {
-                const expenseId = info.event.id.replace("exp_", "");
-                fetch(`/api/expense_details/${expenseId}`)
-                    .then(res => res.json())
-                    .then(data => openExpenseDetailModal(data))
-                    .catch(err => console.error("Error loading expense details:", err));
-            }
-        }
-    });
-
-    calendar.render();
 }
 </script>
 {% endblock %}

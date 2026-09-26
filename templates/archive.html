@@ -103,7 +103,7 @@
                     <select id="dateFilterMode" onchange="handleFilterModeChange()" class="form-select border-start-0 bg-light">
                         <option value="all">Toutes les dates</option>
                         <option value="date">Date spécifique (JJ/MM/AAAA)</option>
-                        <option value="month">Mois entier</option>
+                        <option value="month" selected>Mois entier</option>
                         <option value="year">Année entière</option>
                     </select>
                 </div>
@@ -363,10 +363,71 @@
 <script>
 let selectedTaskIdForDelete = null;
 let activeStatusFilter = 'all';
+let archiveCalendar = null; // Global calendar reference
 
 document.addEventListener("DOMContentLoaded", function () {
+    // 1. Populate year dropdown options
     populateYearDropdown();
+
+    // 2. Initialize calendar
+    initCalendar();
+
+    // 3. Set default filter mode to 'month'
+    const dateFilterMode = document.getElementById('dateFilterMode');
+    if (dateFilterMode) {
+        dateFilterMode.value = 'month';
+    }
+
+    // 4. Set current year-month (YYYY-MM) in the month input picker
+    const monthInput = document.getElementById('filterExactMonth');
+    if (monthInput) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        monthInput.value = `${year}-${month}`;
+    }
+
+    // 5. Adjust UI columns and trigger initial table & calendar filtering
+    handleFilterModeChange();
 });
+
+function initCalendar() {
+    const calendarEl = document.getElementById('archiveCalendar');
+    if (!calendarEl) return;
+
+    archiveCalendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'fr',
+        dayMaxEvents: 2,
+        moreLinkText: function(n) {
+            return '+' + n + ' plus';
+        },
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: ''
+        },
+        buttonText: {
+            today: "Aujourd'hui"
+        },
+        events: '/api/archive_events',
+        eventClick: function(info) {
+            const targetRow = document.querySelector(`#archiveTable tbody tr[data-id="${info.event.id}"]`);
+            if (targetRow) {
+                openTaskDetails(targetRow);
+            }
+        },
+        dateClick: function(info) {
+            document.getElementById('dateFilterMode').value = 'date';
+            handleFilterModeChange();
+            document.getElementById('filterExactDate').value = info.dateStr;
+            filterArchiveTable();
+        }
+    });
+
+    archiveCalendar.render();
+    setTimeout(() => archiveCalendar.updateSize(), 100);
+}
 
 function populateYearDropdown() {
     const yearSelect = document.getElementById('filterExactYear');
@@ -457,6 +518,7 @@ function filterArchiveTable() {
     let visibleCompleted = 0;
     let visibleCanceled = 0;
     let totalVisibleRows = 0;
+    const visibleTaskIds = new Set();
 
     tableRows.forEach(row => {
         if (row.id === 'noDataRow' || row.id === 'noResultsRow') return;
@@ -464,6 +526,7 @@ function filterArchiveTable() {
         const textContent = row.textContent.toLowerCase();
         const dateVal = row.getAttribute('data-date') || '';
         const status = row.getAttribute('data-status');
+        const taskId = row.getAttribute('data-id');
 
         const matchesSearch = textContent.includes(searchInput);
 
@@ -486,6 +549,8 @@ function filterArchiveTable() {
         if (matchesSearch && matchesDate && matchesStatus) {
             row.style.display = '';
             totalVisibleRows++;
+            if (taskId) visibleTaskIds.add(String(taskId));
+            
             if (status === 'canceled') {
                 visibleCanceled++;
             } else {
@@ -496,6 +561,7 @@ function filterArchiveTable() {
         }
     });
 
+    // Update empty search state table row
     const noResultsRow = document.getElementById('noResultsRow');
     if (noResultsRow) {
         if (totalVisibleRows === 0 && tableRows.length > 2) {
@@ -505,11 +571,23 @@ function filterArchiveTable() {
         }
     }
 
+    // Update KPI Card numbers
     const completedElem = document.getElementById('completedCount');
     const canceledElem = document.getElementById('canceledCount');
 
     if (completedElem) completedElem.textContent = visibleCompleted;
     if (canceledElem) canceledElem.textContent = visibleCanceled;
+
+    // Synchronize FullCalendar events with the active filters
+    if (archiveCalendar) {
+        archiveCalendar.getEvents().forEach(event => {
+            if (visibleTaskIds.has(String(event.id))) {
+                event.setProp('display', 'auto');
+            } else {
+                event.setProp('display', 'none');
+            }
+        });
+    }
 }
 
 function openTaskDetails(rowElem) {
@@ -567,43 +645,6 @@ function showDeleteConfirm() {
     const confirmModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
     confirmModal.show();
 }
-document.addEventListener('DOMContentLoaded', function() {
-    const calendarEl = document.getElementById('archiveCalendar');
-    if (!calendarEl) return;
-
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
-        locale: 'fr',
-        dayMaxEvents: 2, // Limits visible events per day cell before displaying "+X more"
-        moreLinkText: function(n) {
-            return '+' + n + ' more'; // Formats text as "+4 more"
-        },
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: ''
-        },
-        buttonText: {
-            today: "Aujourd'hui"
-        },
-        events: '/api/archive_events',
-        eventClick: function(info) {
-            const targetRow = document.querySelector(`#archiveTable tbody tr[data-id="${info.event.id}"]`);
-            if (targetRow) {
-                openTaskDetails(targetRow);
-            }
-        },
-        dateClick: function(info) {
-            document.getElementById('dateFilterMode').value = 'date';
-            handleFilterModeChange();
-            document.getElementById('filterExactDate').value = info.dateStr;
-            filterArchiveTable();
-        }
-    });
-
-    calendar.render();
-    setTimeout(() => calendar.updateSize(), 100);
-});
 
 </script>
 {% endblock %}
