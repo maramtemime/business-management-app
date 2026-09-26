@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date, timedelta
 from sqlalchemy import or_ 
@@ -165,6 +165,7 @@ class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
     color = db.Column(db.String(20), nullable=False, default="#6c757d")
+    is_archived = db.Column(db.Boolean, default=False)
 
 # --- ROUTES ---
 @app.route("/", methods=["GET", "POST"])
@@ -823,8 +824,13 @@ def depenses():
             db.session.commit()
             return redirect(url_for('depenses'))
 
-    categories = Category.query.all()
-    categories_dict = {cat.name: cat.color for cat in categories}
+    # Active categories for filter pills and select dropdowns
+    categories = Category.query.filter_by(is_archived=False).all()
+
+    # Dictionary of ALL categories (including archived) for expense list badge colors
+    all_categories = Category.query.all()
+    categories_dict = {cat.name: cat.color for cat in all_categories}
+
     expenses = Expense.query.order_by(Expense.date.desc()).all()
 
     return render_template(
@@ -852,11 +858,11 @@ def add_category():
 def delete_category(category_id):
     category = Category.query.get_or_404(category_id)
     
-    # Optionally: update existing expenses under this category to 'Autre'
-    Expense.query.filter_by(category=category.name).update({'category': 'Autre'})
-    
-    db.session.delete(category)
+    # Soft delete: archive instead of hard deleting
+    category.is_archived = True
     db.session.commit()
+    
+    flash("Catégorie supprimée avec succès.", "success")
     return redirect(url_for('depenses'))
 
 if __name__ == "__main__":
