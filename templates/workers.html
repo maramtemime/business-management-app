@@ -255,7 +255,7 @@
 <!-- Modal Overlay -->
 <div class="overlay" id="modalOverlay" onclick="closeAllWorkerModals()"></div>
 
-<!-- Add Worker Modal Box -->
+<!-- Modal Box for Adding a Worker -->
 <div class="modal-box" id="workerModal" style="display: none;">
     <h5 class="fw-bold mb-4" style="color: #1a2c54;">Ajouter un Travailleur</h5>
     <form action="{{ url_for('travailleurs') }}" method="POST">
@@ -285,22 +285,22 @@
             </select>
         </div>
 
-        <!-- Price Input (Label changes dynamically) -->
+        <!-- Price Input (Updated name to pay_per_normal_hr) -->
         <div class="mb-3">
             <label id="add_price_label" class="form-label text-muted small fw-semibold">Prix / Heure Normale (DT)</label>
-            <input type="number" step="0.01" name="hourly_rate" class="form-control" placeholder="0.00" required>
+            <input type="number" step="0.01" name="pay_per_normal_hr" class="form-control" placeholder="0.00" required>
         </div>
 
-        <!-- Dynamic Field: Hours per Day (Shown only if Par Jour is selected) -->
+        <!-- Dynamic Field: Hours per Day -->
         <div class="mb-3 d-none" id="add_hours_per_day_container">
             <label class="form-label text-muted small fw-semibold">Nombre d'heures / Jour</label>
             <input type="number" step="0.5" name="hours_per_day" id="add_hours_per_day" class="form-control" placeholder="ex: 8">
         </div>
 
-        <!-- Prix / Heure Extra -->
+        <!-- Prix / Heure Extra (Updated name to pay_per_extra_hr) -->
         <div class="mb-3">
             <label class="form-label text-muted small fw-semibold">Prix / Heure Extra (DT)</label>
-            <input type="number" step="0.01" name="overtime_rate" class="form-control" placeholder="0.00" required>
+            <input type="number" step="0.01" name="pay_per_extra_hr" class="form-control" placeholder="0.00" required>
         </div>
         <div class="d-flex justify-content-end gap-2 mt-4">
             <button type="button" class="btn btn-light border px-4 rounded-3 fw-semibold" onclick="closeModal()">Annuler</button>
